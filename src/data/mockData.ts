@@ -1,0 +1,151 @@
+import { MissingAsset, Designer } from "@/types/asset";
+
+export const designers: Designer[] = [
+  { id: "1", name: "Alex Chen", avatar: "AC", email: "alex@company.com" },
+  { id: "2", name: "Sarah Miller", avatar: "SM", email: "sarah@company.com" },
+  { id: "3", name: "James Wilson", avatar: "JW", email: "james@company.com" },
+  { id: "4", name: "Emma Davis", avatar: "ED", email: "emma@company.com" },
+];
+
+export const brandOptions = [
+  { id: "1", name: "Casino Royal", color: "#6366f1" },
+  { id: "2", name: "Lucky Spin", color: "#22c55e" },
+  { id: "3", name: "Vegas Stars", color: "#f59e0b" },
+  { id: "4", name: "Jackpot City", color: "#ec4899" },
+  { id: "5", name: "Golden Palace", color: "#8b5cf6" },
+];
+
+export const providerOptions = [
+  "Pragmatic Play",
+  "NetEnt",
+  "Microgaming",
+  "Evolution Gaming",
+  "Play'n GO",
+  "Yggdrasil",
+  "Red Tiger",
+  "Big Time Gaming",
+];
+
+export const mockAssets: MissingAsset[] = [
+  {
+    id: "1",
+    gameName: "Sweet Bonanza",
+    provider: "Pragmatic Play",
+    brands: [
+      { id: "1", name: "Casino Royal", color: "#6366f1", reflected: true, reflectedBy: "Alex Chen", reflectedAt: "2024-01-15" },
+      { id: "2", name: "Lucky Spin", color: "#22c55e", reflected: false },
+    ],
+    status: "ongoing",
+    designer: designers[0],
+    dateFound: "2024-01-10",
+    notes: "High priority - promotional material needed",
+    createdAt: "2024-01-10T10:00:00Z",
+    updatedAt: "2024-01-12T14:30:00Z",
+  },
+  {
+    id: "2",
+    gameName: "Starburst XXXtreme",
+    provider: "NetEnt",
+    brands: [
+      { id: "3", name: "Vegas Stars", color: "#f59e0b", reflected: true, reflectedBy: "Sarah Miller", reflectedAt: "2024-01-14" },
+      { id: "4", name: "Jackpot City", color: "#ec4899", reflected: true, reflectedBy: "Sarah Miller", reflectedAt: "2024-01-14" },
+    ],
+    status: "completed",
+    designer: designers[1],
+    dateFound: "2024-01-08",
+    notes: "All formats completed",
+    createdAt: "2024-01-08T09:00:00Z",
+    updatedAt: "2024-01-14T16:00:00Z",
+  },
+  {
+    id: "3",
+    gameName: "Book of Dead",
+    provider: "Play'n GO",
+    brands: [
+      { id: "1", name: "Casino Royal", color: "#6366f1", reflected: false },
+      { id: "5", name: "Golden Palace", color: "#8b5cf6", reflected: false },
+    ],
+    status: "not-started",
+    designer: null,
+    dateFound: "2024-01-12",
+    notes: "Waiting for provider assets",
+    createdAt: "2024-01-12T11:00:00Z",
+    updatedAt: "2024-01-12T11:00:00Z",
+  },
+  {
+    id: "4",
+    gameName: "Gates of Olympus",
+    provider: "Pragmatic Play",
+    brands: [
+      { id: "2", name: "Lucky Spin", color: "#22c55e", reflected: true, reflectedBy: "James Wilson", reflectedAt: "2024-01-13" },
+      { id: "3", name: "Vegas Stars", color: "#f59e0b", reflected: true, reflectedBy: "James Wilson", reflectedAt: "2024-01-13" },
+      { id: "4", name: "Jackpot City", color: "#ec4899", reflected: false },
+    ],
+    status: "exported",
+    designer: designers[2],
+    dateFound: "2024-01-05",
+    notes: "Exported to all formats, pending upload",
+    createdAt: "2024-01-05T08:00:00Z",
+    updatedAt: "2024-01-13T10:00:00Z",
+  },
+  {
+    id: "5",
+    gameName: "Crazy Time",
+    provider: "Evolution Gaming",
+    brands: [
+      { id: "1", name: "Casino Royal", color: "#6366f1", reflected: true, reflectedBy: "Emma Davis", reflectedAt: "2024-01-11" },
+      { id: "2", name: "Lucky Spin", color: "#22c55e", reflected: true, reflectedBy: "Emma Davis", reflectedAt: "2024-01-11" },
+      { id: "5", name: "Golden Palace", color: "#8b5cf6", reflected: true, reflectedBy: "Emma Davis", reflectedAt: "2024-01-11" },
+    ],
+    status: "uploaded",
+    designer: designers[3],
+    dateFound: "2024-01-03",
+    notes: "Live game assets - all complete",
+    createdAt: "2024-01-03T14:00:00Z",
+    updatedAt: "2024-01-11T17:00:00Z",
+  },
+  {
+    id: "6",
+    gameName: "Mega Moolah",
+    provider: "Microgaming",
+    brands: [
+      { id: "4", name: "Jackpot City", color: "#ec4899", reflected: false },
+    ],
+    status: "ongoing",
+    designer: designers[0],
+    dateFound: "2024-01-14",
+    notes: "Progressive jackpot - high priority",
+    createdAt: "2024-01-14T09:30:00Z",
+    updatedAt: "2024-01-15T11:00:00Z",
+  },
+  {
+    id: "7",
+    gameName: "Vikings Go Berzerk",
+    provider: "Yggdrasil",
+    brands: [
+      { id: "1", name: "Casino Royal", color: "#6366f1", reflected: false },
+      { id: "3", name: "Vegas Stars", color: "#f59e0b", reflected: false },
+    ],
+    status: "not-started",
+    designer: null,
+    dateFound: "2024-01-15",
+    notes: "",
+    createdAt: "2024-01-15T10:00:00Z",
+    updatedAt: "2024-01-15T10:00:00Z",
+  },
+  {
+    id: "8",
+    gameName: "Gonzo's Quest Megaways",
+    provider: "Red Tiger",
+    brands: [
+      { id: "2", name: "Lucky Spin", color: "#22c55e", reflected: true, reflectedBy: "Alex Chen", reflectedAt: "2024-01-14" },
+      { id: "5", name: "Golden Palace", color: "#8b5cf6", reflected: false },
+    ],
+    status: "completed",
+    designer: designers[1],
+    dateFound: "2024-01-07",
+    notes: "Megaways version assets",
+    createdAt: "2024-01-07T15:00:00Z",
+    updatedAt: "2024-01-14T13:00:00Z",
+  },
+];
