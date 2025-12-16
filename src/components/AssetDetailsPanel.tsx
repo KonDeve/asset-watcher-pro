@@ -2,9 +2,10 @@ import { MissingAsset, AssetStatus, statusConfig } from "@/types/asset";
 import { designers } from "@/data/mockData";
 import { StatusBadge } from "@/components/StatusBadge";
 import { DesignerAvatar } from "@/components/DesignerAvatar";
-import { BrandTag } from "@/components/BrandTag";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -12,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { X, Copy, Share2, Calendar, Clock, FileText } from "lucide-react";
+import { X, Copy, Share2, Calendar, Clock, FileText, CheckCircle2, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface AssetDetailsPanelProps {
@@ -20,6 +21,7 @@ interface AssetDetailsPanelProps {
   onClose: () => void;
   onStatusChange: (assetId: string, status: AssetStatus) => void;
   onDesignerChange: (assetId: string, designerId: string) => void;
+  onBrandReflectionToggle?: (assetId: string, brandId: string, reflected: boolean) => void;
 }
 
 export function AssetDetailsPanel({
@@ -27,6 +29,7 @@ export function AssetDetailsPanel({
   onClose,
   onStatusChange,
   onDesignerChange,
+  onBrandReflectionToggle,
 }: AssetDetailsPanelProps) {
   const { toast } = useToast();
 
@@ -45,10 +48,10 @@ Notes: ${asset.notes || "N/A"}`;
   };
 
   return (
-    <div className="w-80 border-l border-border bg-card flex flex-col animate-slide-in-right">
+    <div className="w-80 lg:w-96 border-l border-border bg-card flex flex-col animate-slide-in-right shrink-0">
       {/* Header */}
-      <div className="p-4 border-b border-border flex items-center justify-between">
-        <h2 className="font-semibold text-foreground">Details</h2>
+      <div className="p-4 border-b border-border flex items-center justify-between shrink-0">
+        <h2 className="font-semibold text-foreground">Asset Details</h2>
         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
           <X className="w-4 h-4" />
         </Button>
@@ -57,7 +60,7 @@ Notes: ${asset.notes || "N/A"}`;
       {/* Content */}
       <div className="flex-1 overflow-auto p-4 space-y-5">
         {/* Title */}
-        <div>
+        <div className="bg-muted/50 rounded-lg p-3">
           <h3 className="text-lg font-semibold text-foreground mb-1">
             {asset.gameName}
           </h3>
@@ -109,21 +112,51 @@ Notes: ${asset.notes || "N/A"}`;
           </Select>
         </div>
 
-        {/* Brands */}
+        {/* Brand Verification */}
         <div>
-          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 block">
-            Brands / Websites
+          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3 block">
+            Brand Verification
           </label>
-          <div className="flex flex-wrap gap-2">
+          <div className="space-y-2">
             {asset.brands.map((brand) => (
-              <BrandTag key={brand.id} brand={brand} showReflection />
+              <div
+                key={brand.id}
+                className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30 border border-border"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span
+                    className="w-3 h-3 rounded-full shrink-0"
+                    style={{ backgroundColor: brand.color }}
+                  />
+                  <span className="text-sm font-medium text-foreground truncate">
+                    {brand.name}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {brand.reflected ? (
+                    <CheckCircle2 className="w-4 h-4 text-success" />
+                  ) : (
+                    <XCircle className="w-4 h-4 text-muted-foreground" />
+                  )}
+                  <Switch
+                    checked={brand.reflected}
+                    onCheckedChange={(checked) =>
+                      onBrandReflectionToggle?.(asset.id, brand.id, checked)
+                    }
+                    className="data-[state=checked]:bg-success"
+                  />
+                </div>
+              </div>
             ))}
           </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            Toggle to verify if the asset is reflected on each brand's website.
+          </p>
         </div>
 
         {/* Dates */}
         <div className="grid grid-cols-2 gap-4">
-          <div>
+          <div className="bg-muted/30 rounded-lg p-3">
             <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1 block">
               Date Found
             </label>
@@ -132,7 +165,7 @@ Notes: ${asset.notes || "N/A"}`;
               {new Date(asset.dateFound).toLocaleDateString()}
             </div>
           </div>
-          <div>
+          <div className="bg-muted/30 rounded-lg p-3">
             <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1 block">
               Last Updated
             </label>
@@ -159,7 +192,7 @@ Notes: ${asset.notes || "N/A"}`;
       </div>
 
       {/* Footer Actions */}
-      <div className="p-4 border-t border-border flex gap-2">
+      <div className="p-4 border-t border-border flex gap-2 shrink-0">
         <Button variant="outline" size="sm" className="flex-1" onClick={handleCopyDoc}>
           <Copy className="w-4 h-4 mr-2" />
           Copy Doc
