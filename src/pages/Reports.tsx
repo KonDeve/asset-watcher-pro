@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAssets } from "@/hooks/useData";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -5,7 +6,7 @@ import { PageLoader } from "@/components/PageLoader";
 import { AssetStatus, statusConfig } from "@/types/asset";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Copy, Download, FileText, CheckCircle2, TrendingUp, Clock, AlertCircle, BarChart3 } from "lucide-react";
+import { Copy, Download, FileText, CheckCircle2, TrendingUp, Clock, AlertCircle, BarChart3, ChevronLeft, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useMinimumLoader } from "@/hooks/use-minimum-loader";
 
@@ -14,17 +15,22 @@ export default function Reports() {
   const { assets, loading, isUsingSupabase } = useAssets();
   const showLoader = useMinimumLoader(loading, 1500);
 
-  // Show loading state
-  if (showLoader) {
-    return (
-      <AppLayout>
-        <PageLoader message="Loading reports..." isUsingSupabase={isUsingSupabase} />
-      </AppLayout>
-    );
-  }
+  const [pendingPage, setPendingPage] = useState(1);
+  const pendingPageSize = 10;
 
   const ongoingAssets = assets.filter((a) => a.status === "ongoing");
   const notStartedAssets = assets.filter((a) => a.status === "not-started");
+
+  const totalPendingPages = Math.max(1, Math.ceil(notStartedAssets.length / pendingPageSize));
+  const clampedPendingPage = Math.min(pendingPage, totalPendingPages);
+  const paginatedPending = notStartedAssets.slice(
+    (clampedPendingPage - 1) * pendingPageSize,
+    clampedPendingPage * pendingPageSize
+  );
+
+  useEffect(() => {
+    setPendingPage(1);
+  }, [notStartedAssets.length]);
 
   const statusCounts = assets.reduce((acc, asset) => {
     acc[asset.status] = (acc[asset.status] || 0) + 1;
@@ -94,7 +100,10 @@ ${ongoingAssets
 
   return (
     <AppLayout>
-      <div className="p-4 lg:p-6 h-full overflow-auto">
+      {showLoader ? (
+        <PageLoader message="Loading reports..." isUsingSupabase={isUsingSupabase} />
+      ) : (
+        <div className="p-4 lg:p-6 h-full overflow-auto">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <div>
@@ -270,34 +279,90 @@ ${ongoingAssets
                 <p className="text-sm text-muted-foreground">All items assigned</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {notStartedAssets.map((asset) => (
-                  <div
-                    key={asset.id}
-                    className="py-2.5 px-3 rounded-lg bg-muted/30 border border-border"
-                  >
-                    <p className="font-medium text-foreground text-sm truncate">
-                      {asset.gameName}
-                    </p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {asset.provider}
-                    </p>
-                    <div className="flex items-center gap-1 mt-2">
-                      {asset.brands.map((brand) => (
-                        <span
-                          key={brand.id}
-                          className="w-2 h-2 rounded-full"
-                          style={{ backgroundColor: brand.color }}
-                        />
+              <div className="space-y-4">
+                <div className="overflow-auto rounded-lg border border-border">
+                  <table className="w-full border-collapse">
+                    <thead className="bg-muted/60">
+                      <tr className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                        <th className="px-4 py-3">Game Name</th>
+                        <th className="px-4 py-3">Provider</th>
+                        <th className="px-4 py-3">Brands</th>
+                        <th className="px-4 py-3">Designer</th>
+                        <th className="px-4 py-3">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginatedPending.map((asset, index) => (
+                        <tr
+                          key={asset.id}
+                          className={`border-t border-border/60 ${index % 2 === 0 ? "bg-card" : "bg-muted/20"}`}
+                        >
+                          <td className="px-4 py-3 text-sm font-medium text-foreground">{asset.gameName}</td>
+                          <td className="px-4 py-3 text-sm text-muted-foreground">{asset.provider}</td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {asset.brands.length === 0 && (
+                                <span className="text-xs text-muted-foreground">None</span>
+                              )}
+                              {asset.brands.map((brand) => (
+                                <span
+                                  key={brand.id}
+                                  className="h-2.5 w-2.5 rounded-full border border-border/80"
+                                  title={brand.name}
+                                  style={{ backgroundColor: brand.color }}
+                                />
+                              ))}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-muted-foreground">
+                            {asset.designer?.name || "Unassigned"}
+                          </td>
+                          <td className="px-4 py-3">
+                            <StatusBadge status={asset.status} />
+                          </td>
+                        </tr>
                       ))}
-                    </div>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="flex items-center justify-between text-sm text-muted-foreground">
+                  <span>
+                    Showing {(clampedPendingPage - 1) * pendingPageSize + 1} -
+                    {Math.min(clampedPendingPage * pendingPageSize, notStartedAssets.length)} of {notStartedAssets.length}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPendingPage((p) => Math.max(1, p - 1))}
+                      disabled={clampedPendingPage === 1}
+                      className="h-8 px-2"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                      Prev
+                    </Button>
+                    <span className="text-xs">
+                      Page {clampedPendingPage} of {totalPendingPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPendingPage((p) => Math.min(totalPendingPages, p + 1))}
+                      disabled={clampedPendingPage === totalPendingPages}
+                      className="h-8 px-2"
+                    >
+                      Next
+                      <ChevronRight className="w-4 h-4" />
+                    </Button>
                   </div>
-                ))}
+                </div>
               </div>
             )}
           </Card>
         </div>
       </div>
+      )}
     </AppLayout>
   );
 }

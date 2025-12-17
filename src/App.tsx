@@ -18,6 +18,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
+import ChatAssistant from "./pages/ChatAssistant";
 import { supabase } from "@/lib/supabase";
 import type { Session } from "@supabase/supabase-js";
 
@@ -128,6 +129,14 @@ const App = () => {
                   element={
                     <ProtectedRoute>
                       <Profile />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/chat"
+                  element={
+                    <ProtectedRoute>
+                      <ChatAssistant />
                     </ProtectedRoute>
                   }
                 />

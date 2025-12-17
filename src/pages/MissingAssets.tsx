@@ -29,6 +29,8 @@ import {
   SlidersHorizontal,
   Gamepad2,
   RefreshCw,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { AssetDetailsPanel } from "@/components/AssetDetailsPanel";
 import { AddAssetModal } from "@/components/AddAssetModal";
@@ -97,6 +99,11 @@ export default function MissingAssets() {
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [selectedDesigners, setSelectedDesigners] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
+  const [page, setPage] = useState(() => {
+    const saved = Number.parseInt(localStorage.getItem("missingAssetsPage") || "1", 10);
+    return Number.isNaN(saved) || saved < 1 ? 1 : saved;
+  });
+  const pageSize = 10;
 
   // Drag-to-fill state
   const [isDragging, setIsDragging] = useState(false);
@@ -106,6 +113,7 @@ export default function MissingAssets() {
   const [dragValue, setDragValue] = useState<AssetStatus | string | null>(null);
   const tableRef = useRef<HTMLTableElement>(null);
   const tableContainerRef = useRef<HTMLDivElement>(null);
+  const didInitFilters = useRef(false);
 
   // Refs to track drag state for event listeners
   const dragStateRef = useRef({
@@ -160,6 +168,33 @@ export default function MissingAssets() {
 
     return matchesSearch && matchesStatus && matchesProvider && matchesBrand && matchesDesigner;
   });
+
+  const totalPages = Math.max(1, Math.ceil(filteredAssets.length / pageSize));
+  const clampedPage = Math.min(page, totalPages);
+  const paginatedAssets = filteredAssets.slice(
+    (clampedPage - 1) * pageSize,
+    clampedPage * pageSize
+  );
+  const showingStart = filteredAssets.length === 0 ? 0 : (clampedPage - 1) * pageSize + 1;
+  const showingEnd = Math.min(clampedPage * pageSize, filteredAssets.length);
+
+  useEffect(() => {
+    if (!didInitFilters.current) {
+      didInitFilters.current = true;
+      return;
+    }
+    setPage(1);
+  }, [searchQuery, statusFilter, selectedProviders, selectedBrands, selectedDesigners, viewMode]);
+
+  useEffect(() => {
+    if (loading) return;
+    const maxPage = Math.max(1, Math.ceil(filteredAssets.length / pageSize));
+    setPage((prev) => (prev > maxPage ? maxPage : prev));
+  }, [loading, filteredAssets.length, pageSize]);
+
+  useEffect(() => {
+    localStorage.setItem("missingAssetsPage", String(clampedPage));
+  }, [clampedPage]);
 
   const activeFilterCount =
     selectedProviders.length + selectedBrands.length + selectedDesigners.length;
@@ -372,74 +407,111 @@ Notes: ${asset.notes || "N/A"}`;
     }
   };
 
-  const handleDragEnd = () => {
+  const handleDragEnd = async () => {
     const { isDragging, startIndex, currentIndex, value, dragType } = dragStateRef.current;
-    
-    if (isDragging && startIndex !== null && currentIndex !== null && value !== null) {
-      const startIdx = Math.min(startIndex, currentIndex);
-      const endIdx = Math.max(startIndex, currentIndex);
 
-      if (startIdx !== endIdx) {
-        const affectedAssets = filteredAssets.slice(startIdx, endIdx + 1);
-        const updateCount = affectedAssets.length;
+    try {
+      if (isDragging && startIndex !== null && currentIndex !== null && value !== null) {
+        const startIdx = Math.min(startIndex, currentIndex);
+        const endIdx = Math.max(startIndex, currentIndex);
 
-        if (dragType === "status") {
-          setAssets((prev) =>
-            prev.map((asset) => {
-              const isAffected = affectedAssets.some((a) => a.id === asset.id);
-              if (isAffected) {
-                return {
-                  ...asset,
-                  status: value as AssetStatus,
-                  updatedAt: new Date().toISOString(),
-                };
-              }
-              return asset;
-            })
-          );
-          toast({
-            title: "Bulk status update",
-            description: `Updated ${updateCount} assets to "${statusConfig[value as AssetStatus].label}"`,
-          });
-        } else if (dragType === "designer") {
-          const designer = value === "unassigned" ? null : designers.find((d) => d.id === value) || null;
-          setAssets((prev) =>
-            prev.map((asset) => {
-              const isAffected = affectedAssets.some((a) => a.id === asset.id);
-              if (isAffected) {
-                return {
-                  ...asset,
-                  designer,
-                  updatedAt: new Date().toISOString(),
-                };
-              }
-              return asset;
-            })
-          );
-          toast({
-            title: "Bulk designer update",
-            description: `Updated ${updateCount} assets to "${designer?.name || "Unassigned"}"`,
-          });
+        if (startIdx !== endIdx) {
+          const affectedAssets = filteredAssets.slice(startIdx, endIdx + 1);
+          const updateCount = affectedAssets.length;
+
+          if (dragType === "status") {
+            const newStatus = value as AssetStatus;
+
+            // Optimistic UI update
+            setAssets((prev) =>
+              prev.map((asset) => {
+                const isAffected = affectedAssets.some((a) => a.id === asset.id);
+                if (isAffected) {
+                  return {
+                    ...asset,
+                    status: newStatus,
+                    updatedAt: new Date().toISOString(),
+                  };
+                }
+                return asset;
+              })
+            );
+
+            const results = await Promise.all(
+              affectedAssets.map((asset) => updateStatus(asset.id, newStatus))
+            );
+            const failures = results.filter((r) => !r).length;
+
+            if (failures > 0) {
+              toast({
+                title: "Some updates failed",
+                description: `${updateCount - failures} saved, ${failures} failed. Please try again.`,
+                variant: "destructive",
+              });
+              refetch();
+            } else {
+              toast({
+                title: "Bulk status update",
+                description: `Updated ${updateCount} assets to "${statusConfig[newStatus].label}"`,
+              });
+            }
+          } else if (dragType === "designer") {
+            const designer = value === "unassigned" ? null : designers.find((d) => d.id === value) || null;
+
+            // Optimistic UI update
+            setAssets((prev) =>
+              prev.map((asset) => {
+                const isAffected = affectedAssets.some((a) => a.id === asset.id);
+                if (isAffected) {
+                  return {
+                    ...asset,
+                    designer,
+                    updatedAt: new Date().toISOString(),
+                  };
+                }
+                return asset;
+              })
+            );
+
+            const results = await Promise.all(
+              affectedAssets.map((asset) => updateDesigner(asset.id, designer))
+            );
+            const failures = results.filter((r) => !r).length;
+
+            if (failures > 0) {
+              toast({
+                title: "Some updates failed",
+                description: `${updateCount - failures} saved, ${failures} failed. Please try again.`,
+                variant: "destructive",
+              });
+              refetch();
+            } else {
+              toast({
+                title: "Bulk designer update",
+                description: `Updated ${updateCount} assets to "${designer?.name || "Unassigned"}"`,
+              });
+            }
+          }
         }
       }
+    } finally {
+      dragStateRef.current = {
+        isDragging: false,
+        dragType: null,
+        startIndex: null,
+        currentIndex: null,
+        value: null,
+      };
+
+      setIsDragging(false);
+      setDragType(null);
+      setDragStartIndex(null);
+      setDragCurrentIndex(null);
+      setDragValue(null);
+
+      document.removeEventListener("mousemove", handleDragMove);
+      document.removeEventListener("mouseup", handleDragEnd);
     }
-
-    dragStateRef.current = {
-      isDragging: false,
-      dragType: null,
-      startIndex: null,
-      currentIndex: null,
-      value: null,
-    };
-
-    setIsDragging(false);
-    setDragType(null);
-    setDragStartIndex(null);
-    setDragCurrentIndex(null);
-    setDragValue(null);
-
-    document.removeEventListener("mousemove", handleDragMove);
-    document.removeEventListener("mouseup", handleDragEnd);
   };
 
   useEffect(() => {
@@ -674,7 +746,7 @@ Notes: ${asset.notes || "N/A"}`;
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredAssets.map((asset, index) => (
+                    {paginatedAssets.map((asset, index) => (
                       <tr
                         key={asset.id}
                         onClick={() => setSelectedAsset(asset)}
@@ -830,6 +902,39 @@ Notes: ${asset.notes || "N/A"}`;
                   </tbody>
                 </table>
               </div>
+
+              {filteredAssets.length > 0 && (
+                <div className="sticky bottom-0 left-0 right-0 flex items-center justify-between px-3 py-3 text-sm text-muted-foreground border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:backdrop-blur-sm">
+                  <span>
+                    Showing {showingStart}-{showingEnd} of {filteredAssets.length}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      disabled={clampedPage === 1}
+                      className="h-8 px-2"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Prev
+                    </Button>
+                    <span className="text-xs">
+                      Page {clampedPage} of {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={clampedPage === totalPages}
+                      className="h-8 px-2"
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
 
               {filteredAssets.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-16 text-center">

@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { MissingAsset, AssetStatus, statusConfig, Designer } from "@/types/asset";
 import { StatusBadge } from "@/components/StatusBadge";
 import { DesignerAvatar } from "@/components/DesignerAvatar";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 import {
   Select,
   SelectContent,
@@ -21,6 +22,7 @@ import {
   CheckCircle2,
   XCircle,
   ArrowLeft,
+  GripVertical,
 } from "lucide-react";
 
 interface ProviderFolderViewProps {
@@ -43,6 +45,21 @@ export function ProviderFolderView({
   onShare,
 }: ProviderFolderViewProps) {
   const [openProvider, setOpenProvider] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragType, setDragType] = useState<"status" | "designer" | null>(null);
+  const [dragStartIndex, setDragStartIndex] = useState<number | null>(null);
+  const [dragCurrentIndex, setDragCurrentIndex] = useState<number | null>(null);
+  const [dragValue, setDragValue] = useState<AssetStatus | string | null>(null);
+  const tableRef = useRef<HTMLTableElement>(null);
+  const providerAssetsRef = useRef<MissingAsset[]>([]);
+
+  const dragStateRef = useRef({
+    isDragging: false,
+    dragType: null as "status" | "designer" | null,
+    startIndex: null as number | null,
+    currentIndex: null as number | null,
+    value: null as AssetStatus | string | null,
+  });
 
   // Group assets by provider
   const providerGroups = assets.reduce((groups, asset) => {
@@ -74,8 +91,128 @@ export function ProviderFolderView({
     return summary;
   };
 
+  const providerAssets = useMemo(
+    () => (openProvider ? providerGroups[openProvider] || [] : []),
+    [openProvider, providerGroups]
+  );
+
+  const { toast } = useToast();
+
+  useEffect(() => {
+    providerAssetsRef.current = providerAssets;
+  }, [providerAssets]);
+
+  const handleDragStart = (
+    e: React.MouseEvent,
+    index: number,
+    type: "status" | "designer",
+    value: AssetStatus | string
+  ) => {
+    if (!openProvider) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    setIsDragging(true);
+    setDragType(type);
+    setDragStartIndex(index);
+    setDragCurrentIndex(index);
+    setDragValue(value);
+
+    dragStateRef.current = {
+      isDragging: true,
+      dragType: type,
+      startIndex: index,
+      currentIndex: index,
+      value,
+    };
+
+    document.addEventListener("mousemove", handleDragMove);
+    document.addEventListener("mouseup", handleDragEnd);
+  };
+
+  const handleDragMove = (e: MouseEvent) => {
+    if (!dragStateRef.current.isDragging || !tableRef.current) return;
+
+    const rows = tableRef.current.querySelectorAll("tbody tr");
+    let newIndex = dragStateRef.current.startIndex;
+
+    rows.forEach((row, index) => {
+      const rect = row.getBoundingClientRect();
+      if (e.clientY >= rect.top && e.clientY <= rect.bottom) {
+        newIndex = index;
+      }
+    });
+
+    if (newIndex !== dragStateRef.current.currentIndex) {
+      dragStateRef.current.currentIndex = newIndex;
+      setDragCurrentIndex(newIndex);
+    }
+  };
+
+  const handleDragEnd = () => {
+    const { isDragging: dragging, startIndex, currentIndex, value, dragType: type } = dragStateRef.current;
+    const activeAssets = providerAssetsRef.current;
+
+    if (dragging && startIndex !== null && currentIndex !== null && value !== null && activeAssets.length) {
+      const startIdx = Math.min(startIndex, currentIndex);
+      const endIdx = Math.max(startIndex, currentIndex);
+
+      if (startIdx !== endIdx) {
+        const affectedAssets = activeAssets.slice(startIdx, endIdx + 1);
+
+        if (type === "status") {
+          affectedAssets.forEach((a) => onStatusChange(a.id, value as AssetStatus));
+          toast({
+            title: "Bulk status update",
+            description: `Updated ${affectedAssets.length} assets to "${statusConfig[value as AssetStatus].label}"`,
+          });
+        } else if (type === "designer") {
+          affectedAssets.forEach((a) => onDesignerChange(a.id, value as string));
+          const designerName =
+            value === "unassigned"
+              ? "Unassigned"
+              : designers.find((d) => d.id === value)?.name || "Designer";
+          toast({
+            title: "Bulk designer update",
+            description: `Updated ${affectedAssets.length} assets to "${designerName}"`,
+          });
+        }
+      }
+    }
+
+    dragStateRef.current = {
+      isDragging: false,
+      dragType: null,
+      startIndex: null,
+      currentIndex: null,
+      value: null,
+    };
+
+    setIsDragging(false);
+    setDragType(null);
+    setDragStartIndex(null);
+    setDragCurrentIndex(null);
+    setDragValue(null);
+
+    document.removeEventListener("mousemove", handleDragMove);
+    document.removeEventListener("mouseup", handleDragEnd);
+  };
+
+  useEffect(() => {
+    return () => {
+      document.removeEventListener("mousemove", handleDragMove);
+      document.removeEventListener("mouseup", handleDragEnd);
+    };
+  }, []);
+
+  const isInDragRange = (index: number) => {
+    if (!isDragging || dragStartIndex === null || dragCurrentIndex === null) return false;
+    const start = Math.min(dragStartIndex, dragCurrentIndex);
+    const end = Math.max(dragStartIndex, dragCurrentIndex);
+    return index >= start && index <= end;
+  };
+
   if (openProvider) {
-    const providerAssets = providerGroups[openProvider] || [];
 
     return (
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -101,7 +238,7 @@ export function ProviderFolderView({
 
         {/* Table */}
         <div className="flex-1 overflow-auto scrollbar-thin">
-          <table className="w-full border-collapse">
+          <table ref={tableRef} className="w-full border-collapse select-none">
             <thead className="sticky top-0 z-10">
               <tr className="bg-muted/80 backdrop-blur-sm border-b border-border">
                 <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-4 py-3">
@@ -136,6 +273,8 @@ export function ProviderFolderView({
                     cursor-pointer transition-colors duration-100 border-b border-border/30
                     ${index % 2 === 0 ? "bg-card" : "bg-muted/10"}
                     hover:bg-muted/30
+                    ${isInDragRange(index) && dragType === "status" ? "!bg-primary/15" : ""}
+                    ${isInDragRange(index) && dragType === "designer" ? "!bg-blue-500/15" : ""}
                   `}
                 >
                   <td className="px-4 py-3">
@@ -172,41 +311,59 @@ export function ProviderFolderView({
                     </div>
                   </td>
                   <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                    <Select
-                      value={asset.status}
-                      onValueChange={(v) =>
-                        onStatusChange(asset.id, v as AssetStatus)
-                      }
-                    >
-                      <SelectTrigger className="w-28 h-7 border-0 bg-transparent p-0 hover:bg-muted/50 rounded transition-colors">
-                        <StatusBadge status={asset.status} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Object.entries(statusConfig).map(([key, config]) => (
-                          <SelectItem key={key} value={key}>
-                            {config.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="flex items-center gap-1 group">
+                      <div
+                        className="cursor-grab active:cursor-grabbing p-1 -ml-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-muted rounded"
+                        onMouseDown={(e) => handleDragStart(e, index, "status", asset.status)}
+                        title="Drag to fill"
+                      >
+                        <GripVertical className="w-3 h-3 text-muted-foreground" />
+                      </div>
+                      <Select
+                        value={asset.status}
+                        onValueChange={(v) =>
+                          onStatusChange(asset.id, v as AssetStatus)
+                        }
+                      >
+                        <SelectTrigger className="w-28 h-7 border-0 bg-transparent p-0 hover:bg-muted/50 rounded transition-colors">
+                          <StatusBadge status={asset.status} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(statusConfig).map(([key, config]) => (
+                            <SelectItem key={key} value={key}>
+                              {config.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </td>
                   <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                    <Select
-                      value={asset.designer?.id || "unassigned"}
-                      onValueChange={(v) => onDesignerChange(asset.id, v)}
-                    >
-                      <SelectTrigger className="w-32 h-7 border-0 bg-transparent p-0 hover:bg-muted/50 rounded transition-colors">
-                        <DesignerAvatar designer={asset.designer} size="sm" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="unassigned">Unassigned</SelectItem>
-                        {designers.map((d) => (
-                          <SelectItem key={d.id} value={d.id}>
-                            {d.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="flex items-center gap-1 group">
+                      <div
+                        className="cursor-grab active:cursor-grabbing p-1 -ml-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-muted rounded"
+                        onMouseDown={(e) => handleDragStart(e, index, "designer", asset.designer?.id || "unassigned")}
+                        title="Drag to fill"
+                      >
+                        <GripVertical className="w-3 h-3 text-muted-foreground" />
+                      </div>
+                      <Select
+                        value={asset.designer?.id || "unassigned"}
+                        onValueChange={(v) => onDesignerChange(asset.id, v)}
+                      >
+                        <SelectTrigger className="w-32 h-7 border-0 bg-transparent p-0 hover:bg-muted/50 rounded transition-colors">
+                          <DesignerAvatar designer={asset.designer} size="sm" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="unassigned">Unassigned</SelectItem>
+                          {designers.map((d) => (
+                            <SelectItem key={d.id} value={d.id}>
+                              {d.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     <span className="text-sm text-muted-foreground">

@@ -9,7 +9,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Gamepad2,
-  HelpCircle,
+  MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -28,7 +28,7 @@ const navItems = [
 ];
 
 const secondaryNavItems = [
-  { title: "Help & Support", url: "/help", icon: HelpCircle },
+  { title: "Chat AI", url: "/chat", icon: MessageSquare },
 ];
 
 const SIDEBAR_COLLAPSED_KEY = "sidebar-collapsed";

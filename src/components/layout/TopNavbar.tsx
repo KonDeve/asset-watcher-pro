@@ -37,24 +37,18 @@ export function TopNavbar() {
   const avatar = profile?.avatar || metadata.avatar_url || "";
   const initials = profile?.initials || getInitials(displayName, email);
 
-  const handleLogout = async () => { 
+  const handleLogout = async () => {
     await authService.signOut();
-    navigate("/login");     
-  }; 
+    try {
+      localStorage.clear();
+    } catch (err) {
+      console.error("Failed to clear localStorage on logout", err);
+    }
+    navigate("/login");
+  };
 
   return (
-    <header className="h-16 border-b border-border bg-card/80 backdrop-blur-sm flex items-center justify-between px-6 shrink-0">
-      {/* Search */}
-      <div className="flex items-center gap-4 flex-1 max-w-md">
-        <div className="relative w-full">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Search assets, reports..."
-            className="pl-9 h-9 bg-muted/50 border-0 focus-visible:ring-1"
-          />
-        </div>
-      </div>
-
+    <header className="h-16 border-b border-border bg-card/80 backdrop-blur-sm flex items-center justify-end px-6 shrink-0">
       {/* Right side */}
       <div className="flex items-center gap-3">
         {/* Notifications */}
@@ -104,13 +98,6 @@ export function TopNavbar() {
                   <Settings className="mr-2 h-4 w-4" />
                   <span>Settings</span>
                 </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <CreditCard className="mr-2 h-4 w-4" />
-                <span>Billing</span>
-                <Badge variant="secondary" className="ml-auto text-[10px] px-1.5">
-                  Pro
-                </Badge>
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />

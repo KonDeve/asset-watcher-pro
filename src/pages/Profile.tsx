@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +34,8 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { useCurrentUser } from "@/hooks/use-current-user";
 
 // Mock user data
 const userData = {
@@ -50,6 +52,7 @@ const userData = {
 };
 
 export default function Profile() {
+  const { user, profile } = useCurrentUser();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState(userData);
@@ -62,9 +65,62 @@ export default function Profile() {
     marketing: false,
   });
 
+  const computeInitials = (name?: string, email?: string) => {
+    const source = name?.trim() || email || "";
+    if (!source) return "";
+    const parts = source.split(/\s+/);
+    if (parts.length === 1) {
+      const handle = source.includes("@") ? source.split("@")[0] : source;
+      return handle.slice(0, 2).toUpperCase();
+    }
+    return `${(parts[0][0] || "").toUpperCase()}${(parts[parts.length - 1][0] || "").toUpperCase()}`;
+  };
+
+  // Sync form with current profile when available
+  useEffect(() => {
+    if (profile) {
+      setFormData((prev) => ({
+        ...prev,
+        name: profile.name || prev.name,
+        email: profile.email || prev.email,
+        avatar: profile.avatar || prev.avatar,
+        initials: profile.initials || prev.initials,
+      }));
+    }
+  }, [profile]);
+
   const handleSave = async () => {
     setIsSaving(true);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    const fallbackInitials = computeInitials(formData.name, formData.email);
+    const payload = {
+      name: formData.name,
+      email: formData.email,
+      avatar: (formData.initials || fallbackInitials).slice(0, 10),
+    };
+
+    // If Supabase is configured, persist to designers table (email is unique)
+    if (isSupabaseConfigured() && supabase) {
+      const { error } = await supabase
+        .from("designers")
+        .upsert(payload, { onConflict: "email" });
+
+      if (error) {
+        console.error("Failed to save profile", error);
+        toast({
+          title: "Save failed",
+          description: "Could not update your profile right now.",
+          variant: "destructive",
+        });
+        setIsSaving(false);
+        return;
+      }
+    } else {
+      // Mock fallback when Supabase isn't configured
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+
+    setFormData((prev) => ({ ...prev, initials: payload.avatar }));
     setIsSaving(false);
     setIsEditing(false);
     toast({
