@@ -1,34 +1,21 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { StatusBadge } from "@/components/StatusBadge";
 import { DesignerAvatar } from "@/components/DesignerAvatar";
+import { PageLoader } from "@/components/PageLoader";
 import { useAssets } from "@/hooks/useData";
-import {
-  FileQuestion,
-  Clock,
-  CheckCircle2,
-  Upload,
-  TrendingUp,
-  AlertCircle,
-  Loader2,
-} from "lucide-react";
+import { useMinimumLoader } from "@/hooks/use-minimum-loader";
+import { FileQuestion, Clock, CheckCircle2, Upload, TrendingUp, AlertCircle } from "lucide-react";
 import { AssetStatus } from "@/types/asset";
 
 export default function Dashboard() {
   const { assets, loading, isUsingSupabase } = useAssets();
+  const showLoader = useMinimumLoader(loading, 1500);
 
   // Show loading state
-  if (loading) {
+  if (showLoader) {
     return (
       <AppLayout>
-        <div className="flex-1 flex items-center justify-center">
-          <div className="flex flex-col items-center gap-3">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            <p className="text-muted-foreground">Loading dashboard...</p>
-            {isUsingSupabase && (
-              <p className="text-xs text-muted-foreground">Connected to Supabase</p>
-            )}
-          </div>
-        </div>
+        <PageLoader message="Loading dashboard..." isUsingSupabase={isUsingSupabase} />
       </AppLayout>
     );
   }

@@ -1,39 +1,24 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAssets } from "@/hooks/useData";
 import { StatusBadge } from "@/components/StatusBadge";
+import { PageLoader } from "@/components/PageLoader";
 import { AssetStatus, statusConfig } from "@/types/asset";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import {
-  Copy,
-  Download,
-  FileText,
-  CheckCircle2,
-  TrendingUp,
-  Clock,
-  AlertCircle,
-  BarChart3,
-  Loader2,
-} from "lucide-react";
+import { Copy, Download, FileText, CheckCircle2, TrendingUp, Clock, AlertCircle, BarChart3 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useMinimumLoader } from "@/hooks/use-minimum-loader";
 
 export default function Reports() {
   const { toast } = useToast();
   const { assets, loading, isUsingSupabase } = useAssets();
+  const showLoader = useMinimumLoader(loading, 1500);
 
   // Show loading state
-  if (loading) {
+  if (showLoader) {
     return (
       <AppLayout>
-        <div className="flex-1 flex items-center justify-center">
-          <div className="flex flex-col items-center gap-3">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            <p className="text-muted-foreground">Loading reports...</p>
-            {isUsingSupabase && (
-              <p className="text-xs text-muted-foreground">Connected to Supabase</p>
-            )}
-          </div>
-        </div>
+        <PageLoader message="Loading reports..." isUsingSupabase={isUsingSupabase} />
       </AppLayout>
     );
   }

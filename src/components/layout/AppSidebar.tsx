@@ -90,8 +90,8 @@ export function AppSidebar() {
           </div>
           {!collapsed && (
             <div className="flex flex-col">
-              <span className="font-bold text-foreground text-sm leading-tight">Asset Watcher</span>
-              <span className="text-[10px] text-muted-foreground font-medium">Pro Edition</span>
+              <span className="font-bold text-foreground text-sm leading-tight tracking-[0.06em] uppercase">Strive</span>
+              <span className="text-[10px] text-muted-foreground font-semibold tracking-[0.14em] uppercase">Pro Edition</span>
             </div>
           )}
         </div>

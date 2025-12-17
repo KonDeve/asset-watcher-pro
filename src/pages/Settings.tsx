@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useTheme } from "@/components/ThemeProvider";
+import { PageLoader } from "@/components/PageLoader";
+import { useMinimumLoader } from "@/hooks/use-minimum-loader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -230,6 +232,16 @@ export default function Settings() {
       ? `${deleteConfirm.usageCount} asset${deleteConfirm.usageCount === 1 ? "" : "s"} currently reference this ${deleteConfirm.type}. Removing it will clear those references.`
       : `No assets currently reference this ${deleteConfirm.type}.`
     : "";
+
+  const showLoader = useMinimumLoader(brandsLoading || providersLoading, 1500);
+
+  if (showLoader) {
+    return (
+      <AppLayout>
+        <PageLoader message="Loading settings..." />
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>

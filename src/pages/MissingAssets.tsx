@@ -3,6 +3,8 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { StatusBadge } from "@/components/StatusBadge";
 import { DesignerAvatar } from "@/components/DesignerAvatar";
 import { MissingAsset, AssetStatus, statusConfig, Brand } from "@/types/asset";
+import { PageLoader } from "@/components/PageLoader";
+import { useMinimumLoader } from "@/hooks/use-minimum-loader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -25,7 +27,6 @@ import {
   X,
   SlidersHorizontal,
   Gamepad2,
-  Loader2,
 } from "lucide-react";
 import { AssetDetailsPanel } from "@/components/AssetDetailsPanel";
 import { AddAssetModal } from "@/components/AddAssetModal";
@@ -67,6 +68,7 @@ export default function MissingAssets() {
   const { designers } = useDesigners();
   const { brands: brandOptions } = useBrands();
   const { providers: providerOptions } = useProviders();
+  const showLoader = useMinimumLoader(loading, 1500);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<AssetStatus | "all">("all");
@@ -468,18 +470,10 @@ Notes: ${asset.notes || "N/A"}`;
   }, [viewMode]);
 
   // Show loading state (placed after all hooks to maintain hook consistency)
-  if (loading) {
+  if (showLoader) {
     return (
       <AppLayout>
-        <div className="flex-1 flex items-center justify-center">
-          <div className="flex flex-col items-center gap-3">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            <p className="text-muted-foreground">Loading assets...</p>
-            {isUsingSupabase && (
-              <p className="text-xs text-muted-foreground">Connected to Supabase</p>
-            )}
-          </div>
-        </div>
+        <PageLoader message="Loading assets..." isUsingSupabase={isUsingSupabase} />
       </AppLayout>
     );
   }

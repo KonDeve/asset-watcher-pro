@@ -1,38 +1,25 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAssets, useDesigners } from "@/hooks/useData";
 import { StatusBadge } from "@/components/StatusBadge";
+import { PageLoader } from "@/components/PageLoader";
+import { useMinimumLoader } from "@/hooks/use-minimum-loader";
 import { AssetStatus } from "@/types/asset";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import {
-  Mail,
-  Briefcase,
-  CheckCircle2,
-  Clock,
-  Users,
-  TrendingUp,
-  Loader2,
-} from "lucide-react";
+import { Mail, Briefcase, CheckCircle2, Clock, Users, TrendingUp } from "lucide-react";
 
 export default function Team() {
   const { assets, loading: assetsLoading, isUsingSupabase } = useAssets();
   const { designers, loading: designersLoading } = useDesigners();
 
   const loading = assetsLoading || designersLoading;
+  const showLoader = useMinimumLoader(loading, 1500);
 
   // Show loading state
-  if (loading) {
+  if (showLoader) {
     return (
       <AppLayout>
-        <div className="flex-1 flex items-center justify-center">
-          <div className="flex flex-col items-center gap-3">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            <p className="text-muted-foreground">Loading team data...</p>
-            {isUsingSupabase && (
-              <p className="text-xs text-muted-foreground">Connected to Supabase</p>
-            )}
-          </div>
-        </div>
+        <PageLoader message="Loading team data..." isUsingSupabase={isUsingSupabase} />
       </AppLayout>
     );
   }
