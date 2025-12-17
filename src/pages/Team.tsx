@@ -1,5 +1,5 @@
 import { AppLayout } from "@/components/layout/AppLayout";
-import { designers, mockAssets } from "@/data/mockData";
+import { useAssets, useDesigners } from "@/hooks/useData";
 import { StatusBadge } from "@/components/StatusBadge";
 import { AssetStatus } from "@/types/asset";
 import { Card } from "@/components/ui/card";
@@ -11,11 +11,34 @@ import {
   Clock,
   Users,
   TrendingUp,
+  Loader2,
 } from "lucide-react";
 
 export default function Team() {
+  const { assets, loading: assetsLoading, isUsingSupabase } = useAssets();
+  const { designers, loading: designersLoading } = useDesigners();
+
+  const loading = assetsLoading || designersLoading;
+
+  // Show loading state
+  if (loading) {
+    return (
+      <AppLayout>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <p className="text-muted-foreground">Loading team data...</p>
+            {isUsingSupabase && (
+              <p className="text-xs text-muted-foreground">Connected to Supabase</p>
+            )}
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
+
   const getDesignerStats = (designerId: string) => {
-    const designerAssets = mockAssets.filter(
+    const designerAssets = assets.filter(
       (a) => a.designer?.id === designerId
     );
 
@@ -35,9 +58,9 @@ export default function Team() {
     };
   };
 
-  const totalAssigned = mockAssets.filter((a) => a.designer !== null).length;
-  const totalUnassigned = mockAssets.filter((a) => a.designer === null).length;
-  const avgWorkload = Math.round(totalAssigned / designers.length);
+  const totalAssigned = assets.filter((a) => a.designer !== null).length;
+  const totalUnassigned = assets.filter((a) => a.designer === null).length;
+  const avgWorkload = designers.length > 0 ? Math.round(totalAssigned / designers.length) : 0;
 
   return (
     <AppLayout>

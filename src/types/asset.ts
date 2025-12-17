@@ -23,6 +23,7 @@ export interface MissingAsset {
   brands: Brand[];
   status: AssetStatus;
   designer: Designer | null;
+  foundBy: string;
   dateFound: string;
   notes: string;
   createdAt: string;

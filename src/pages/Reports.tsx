@@ -1,5 +1,5 @@
 import { AppLayout } from "@/components/layout/AppLayout";
-import { mockAssets } from "@/data/mockData";
+import { useAssets } from "@/hooks/useData";
 import { StatusBadge } from "@/components/StatusBadge";
 import { AssetStatus, statusConfig } from "@/types/asset";
 import { Button } from "@/components/ui/button";
@@ -13,29 +13,48 @@ import {
   Clock,
   AlertCircle,
   BarChart3,
+  Loader2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Reports() {
   const { toast } = useToast();
+  const { assets, loading, isUsingSupabase } = useAssets();
 
-  const ongoingAssets = mockAssets.filter((a) => a.status === "ongoing");
-  const notStartedAssets = mockAssets.filter((a) => a.status === "not-started");
+  // Show loading state
+  if (loading) {
+    return (
+      <AppLayout>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <p className="text-muted-foreground">Loading reports...</p>
+            {isUsingSupabase && (
+              <p className="text-xs text-muted-foreground">Connected to Supabase</p>
+            )}
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
 
-  const statusCounts = mockAssets.reduce((acc, asset) => {
+  const ongoingAssets = assets.filter((a) => a.status === "ongoing");
+  const notStartedAssets = assets.filter((a) => a.status === "not-started");
+
+  const statusCounts = assets.reduce((acc, asset) => {
     acc[asset.status] = (acc[asset.status] || 0) + 1;
     return acc;
   }, {} as Record<AssetStatus, number>);
 
-  const reflectedCount = mockAssets.reduce(
+  const reflectedCount = assets.reduce(
     (acc, asset) => acc + asset.brands.filter((b) => b.reflected).length,
     0
   );
-  const totalBrandEntries = mockAssets.reduce(
+  const totalBrandEntries = assets.reduce(
     (acc, asset) => acc + asset.brands.length,
     0
   );
-  const reflectionRate = Math.round((reflectedCount / totalBrandEntries) * 100);
+  const reflectionRate = totalBrandEntries > 0 ? Math.round((reflectedCount / totalBrandEntries) * 100) : 0;
 
   const handleCopyOngoing = () => {
     const text = ongoingAssets
@@ -62,7 +81,7 @@ SUMMARY
 ${Object.entries(statusCounts)
   .map(([status, count]) => `${statusConfig[status as AssetStatus].label}: ${count}`)
   .join("\n")}
-Total: ${mockAssets.length}
+Total: ${assets.length}
 
 ONGOING ITEMS
 -------------
@@ -113,7 +132,7 @@ ${ongoingAssets
                 <BarChart3 className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">{mockAssets.length}</p>
+                <p className="text-2xl font-bold text-foreground">{assets.length}</p>
                 <p className="text-xs text-muted-foreground">Total Assets</p>
               </div>
             </div>
@@ -169,7 +188,7 @@ ${ongoingAssets
             <div className="space-y-3">
               {Object.entries(statusConfig).map(([status, config]) => {
                 const count = statusCounts[status as AssetStatus] || 0;
-                const percentage = Math.round((count / mockAssets.length) * 100);
+                const percentage = assets.length > 0 ? Math.round((count / assets.length) * 100) : 0;
                 return (
                   <div key={status} className="flex items-center gap-3">
                     <StatusBadge status={status as AssetStatus} />

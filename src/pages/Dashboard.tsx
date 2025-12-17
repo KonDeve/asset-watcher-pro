@@ -1,7 +1,7 @@
 import { AppLayout } from "@/components/layout/AppLayout";
-import { mockAssets } from "@/data/mockData";
 import { StatusBadge } from "@/components/StatusBadge";
 import { DesignerAvatar } from "@/components/DesignerAvatar";
+import { useAssets } from "@/hooks/useData";
 import {
   FileQuestion,
   Clock,
@@ -9,50 +9,70 @@ import {
   Upload,
   TrendingUp,
   AlertCircle,
+  Loader2,
 } from "lucide-react";
 import { AssetStatus } from "@/types/asset";
 
-const statusCounts = mockAssets.reduce((acc, asset) => {
-  acc[asset.status] = (acc[asset.status] || 0) + 1;
-  return acc;
-}, {} as Record<AssetStatus, number>);
-
-const recentActivity = mockAssets
-  .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-  .slice(0, 5);
-
-const stats = [
-  {
-    title: "Total Missing",
-    value: mockAssets.length,
-    icon: FileQuestion,
-    color: "text-primary",
-    bgColor: "bg-primary/10",
-  },
-  {
-    title: "In Progress",
-    value: statusCounts["ongoing"] || 0,
-    icon: Clock,
-    color: "text-status-ongoing",
-    bgColor: "bg-status-ongoing-bg",
-  },
-  {
-    title: "Completed",
-    value: statusCounts["completed"] || 0,
-    icon: CheckCircle2,
-    color: "text-status-completed",
-    bgColor: "bg-status-completed-bg",
-  },
-  {
-    title: "Uploaded",
-    value: statusCounts["uploaded"] || 0,
-    icon: Upload,
-    color: "text-status-uploaded",
-    bgColor: "bg-status-uploaded-bg",
-  },
-];
-
 export default function Dashboard() {
+  const { assets, loading, isUsingSupabase } = useAssets();
+
+  // Show loading state
+  if (loading) {
+    return (
+      <AppLayout>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <p className="text-muted-foreground">Loading dashboard...</p>
+            {isUsingSupabase && (
+              <p className="text-xs text-muted-foreground">Connected to Supabase</p>
+            )}
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  const statusCounts = assets.reduce((acc, asset) => {
+    acc[asset.status] = (acc[asset.status] || 0) + 1;
+    return acc;
+  }, {} as Record<AssetStatus, number>);
+
+  const recentActivity = [...assets]
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+    .slice(0, 5);
+
+  const stats = [
+    {
+      title: "Total Missing",
+      value: assets.length,
+      icon: FileQuestion,
+      color: "text-primary",
+      bgColor: "bg-primary/10",
+    },
+    {
+      title: "In Progress",
+      value: statusCounts["ongoing"] || 0,
+      icon: Clock,
+      color: "text-status-ongoing",
+      bgColor: "bg-status-ongoing-bg",
+    },
+    {
+      title: "Completed",
+      value: statusCounts["completed"] || 0,
+      icon: CheckCircle2,
+      color: "text-status-completed",
+      bgColor: "bg-status-completed-bg",
+    },
+    {
+      title: "Uploaded",
+      value: statusCounts["uploaded"] || 0,
+      icon: Upload,
+      color: "text-status-uploaded",
+      bgColor: "bg-status-uploaded-bg",
+    },
+  ];
+
   return (
     <AppLayout>
       <div className="p-6">
