@@ -5,6 +5,7 @@ import { DesignerAvatar } from "@/components/DesignerAvatar";
 import { MissingAsset, AssetStatus, statusConfig, Brand } from "@/types/asset";
 import { PageLoader } from "@/components/PageLoader";
 import { useMinimumLoader } from "@/hooks/use-minimum-loader";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -27,6 +28,7 @@ import {
   X,
   SlidersHorizontal,
   Gamepad2,
+  RefreshCw,
 } from "lucide-react";
 import { AssetDetailsPanel } from "@/components/AssetDetailsPanel";
 import { AddAssetModal } from "@/components/AddAssetModal";
@@ -64,6 +66,7 @@ export default function MissingAssets() {
     updateBrandReflection,
     addBrandsToAsset,
     updateAssetBrands,
+    refetch,
   } = useAssets();
   const { designers } = useDesigners();
   const { brands: brandOptions } = useBrands();
@@ -499,6 +502,23 @@ Notes: ${asset.notes || "N/A"}`;
                 </div>
 
                 <div className="flex items-center gap-2">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-9 w-9"
+                          onClick={refetch}
+                          disabled={loading}
+                        >
+                          <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Refresh assets (manual fetch)</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+
                   {/* View Toggle */}
                   <div className="flex items-center bg-muted rounded-lg p-0.5">
                     <Toggle
