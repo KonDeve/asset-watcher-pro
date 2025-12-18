@@ -105,6 +105,8 @@ export default function Settings() {
     { id: "3", name: "EveryMatrix", color: "#f59e0b" },
   ]);
 
+  const [providerSearch, setProviderSearch] = useState("");
+
   // Brand Modal State
   const [brandModalOpen, setBrandModalOpen] = useState(false);
   const [editingBrand, setEditingBrand] = useState<Brand | null>(null);
@@ -232,6 +234,10 @@ export default function Settings() {
       ? `${deleteConfirm.usageCount} asset${deleteConfirm.usageCount === 1 ? "" : "s"} currently reference this ${deleteConfirm.type}. Removing it will clear those references.`
       : `No assets currently reference this ${deleteConfirm.type}.`
     : "";
+
+  const filteredProviders = providers.filter((provider) =>
+    provider.name.toLowerCase().includes(providerSearch.toLowerCase())
+  );
 
   const showLoader = useMinimumLoader(brandsLoading || providersLoading, 1500);
 
@@ -398,14 +404,22 @@ export default function Settings() {
                   </div>
                   <h2 className="font-semibold text-foreground">Game Providers</h2>
                 </div>
-                <Button variant="outline" size="sm" onClick={openAddProviderModal}>
-                  <Plus className="w-3.5 h-3.5 mr-1" />
-                  Add
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={providerSearch}
+                    onChange={(e) => setProviderSearch(e.target.value)}
+                    placeholder="Search providers..."
+                    className="h-9 w-48"
+                  />
+                  <Button variant="outline" size="sm" onClick={openAddProviderModal}>
+                    <Plus className="w-3.5 h-3.5 mr-1" />
+                    Add
+                  </Button>
+                </div>
               </div>
 
-              <div className="space-y-2 max-h-96 overflow-auto scrollbar-thin">
-                {providers.map((provider) => (
+              <div className="space-y-2 max-h-96 overflow-auto scrollbar-thin scrollbar-primary">
+                {filteredProviders.map((provider) => (
                   <div
                     key={provider.id}
                     className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30 border border-border group"
@@ -431,9 +445,11 @@ export default function Settings() {
                     </div>
                   </div>
                 ))}
-                {providers.length === 0 && (
+                {filteredProviders.length === 0 && (
                   <p className="text-sm text-muted-foreground text-center py-4">
-                    No providers added yet
+                    {providers.length === 0
+                      ? "No providers added yet"
+                      : "No providers match your search"}
                   </p>
                 )}
               </div>

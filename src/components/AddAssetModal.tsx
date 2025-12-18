@@ -14,15 +14,21 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, ChevronsUpDown, Check } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 
 interface DuplicateAsset {
   existingAsset: MissingAsset;
@@ -45,6 +51,7 @@ export function AddAssetModal({ open, onClose, onAdd, onAddBrandsToExisting, exi
   
   const [gameNames, setGameNames] = useState("");
   const [provider, setProvider] = useState("");
+  const [providerOpen, setProviderOpen] = useState(false);
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
   const [dateTime, setDateTime] = useState("");
@@ -392,18 +399,58 @@ export function AddAssetModal({ open, onClose, onAdd, onAddBrandsToExisting, exi
           {/* Provider */}
           <div className="space-y-2">
             <Label htmlFor="provider">Provider</Label>
-            <Select value={provider} onValueChange={setProvider}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select provider" />
-              </SelectTrigger>
-              <SelectContent>
-                {providerOptions.map((p) => (
-                  <SelectItem key={p} value={p}>
-                    {p}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Popover open={providerOpen} onOpenChange={setProviderOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={providerOpen}
+                  className="w-full justify-between h-10 text-left font-normal"
+                >
+                  <span className={provider ? "" : "text-muted-foreground"}>
+                    {provider || "Select provider"}
+                  </span>
+                  <ChevronsUpDown className="h-4 w-4 text-muted-foreground" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent
+                className="p-0"
+                align="start"
+                sideOffset={4}
+                style={{ width: "var(--radix-popover-trigger-width)" }}
+              >
+                <Command>
+                  <CommandInput placeholder="Search providers..." className="h-9" autoFocus />
+                  <CommandList
+                    className="max-h-64 overflow-auto scrollbar-thin scrollbar-primary"
+                    onWheel={(e) => e.stopPropagation()}
+                    style={{ overscrollBehavior: "contain" }}
+                  >
+                    <CommandEmpty>No providers found.</CommandEmpty>
+                    <CommandGroup>
+                      {providerOptions.map((p) => (
+                        <CommandItem
+                          key={p}
+                          value={p}
+                          onSelect={(value) => {
+                            setProvider(value);
+                            setProviderOpen(false);
+                          }}
+                          className="cursor-pointer text-sm"
+                        >
+                          <Check
+                            className={`mr-2 h-4 w-4 ${
+                              provider === p ? "opacity-100 text-primary" : "opacity-0"
+                            }`}
+                          />
+                          {p}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
 
           {/* Brands */}

@@ -14,7 +14,14 @@ export const isSupabaseConfigured = (): boolean => {
 let supabase: SupabaseClient<Database> | null = null;
 
 if (isSupabaseConfigured()) {
-  supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
+  supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      // Keep users signed in across reloads/laptop restarts via localStorage-backed refresh tokens
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
+  });
 }
 
 export { supabase };
