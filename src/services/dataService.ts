@@ -279,33 +279,74 @@ class DataService {
       return mockAssets;
     }
 
-    // Fetch assets with related data
-    const { data: assetsData, error: assetsError } = await supabase
-      .from("assets")
-      .select(`
-        *,
-        designer:designers(*),
-        provider:providers(name)
-      `)
-      .order("created_at", { ascending: false });
+    // Paginate to fetch ALL assets (Supabase default limit is 1000)
+    const PAGE_SIZE = 1000;
+    let allAssets: any[] = [];
+    let page = 0;
+    let hasMore = true;
 
-    if (assetsError) {
-      console.error("Error fetching assets:", assetsError);
-      return mockAssets;
+    while (hasMore) {
+      const from = page * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+
+      const { data, error } = await supabase
+        .from("assets")
+        .select(`
+          *,
+          designer:designers(*),
+          provider:providers(name)
+        `)
+        .order("created_at", { ascending: false })
+        .range(from, to);
+
+      if (error) {
+        console.error("Error fetching assets:", error);
+        return mockAssets;
+      }
+
+      if (data && data.length > 0) {
+        allAssets = allAssets.concat(data);
+        hasMore = data.length === PAGE_SIZE;
+        page++;
+      } else {
+        hasMore = false;
+      }
     }
 
-    // Fetch asset brands
-    const { data: assetBrandsData, error: brandsError } = await supabase
-      .from("asset_brands")
-      .select(`
-        *,
-        brand:brands(*)
-      `);
+    const assetsData = allAssets;
 
-    if (brandsError) {
-      console.error("Error fetching asset brands:", brandsError);
-      return mockAssets;
+    // Paginate to fetch ALL asset brands
+    let allAssetBrands: any[] = [];
+    page = 0;
+    hasMore = true;
+
+    while (hasMore) {
+      const from = page * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+
+      const { data, error } = await supabase
+        .from("asset_brands")
+        .select(`
+          *,
+          brand:brands(*)
+        `)
+        .range(from, to);
+
+      if (error) {
+        console.error("Error fetching asset brands:", error);
+        return mockAssets;
+      }
+
+      if (data && data.length > 0) {
+        allAssetBrands = allAssetBrands.concat(data);
+        hasMore = data.length === PAGE_SIZE;
+        page++;
+      } else {
+        hasMore = false;
+      }
     }
+
+    const assetBrandsData = allAssetBrands;
 
     // Map the data to MissingAsset format
     return assetsData.map((asset) => {
