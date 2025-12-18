@@ -240,7 +240,6 @@ STATUS SUMMARY:
                   <span className="text-foreground">Achieve Great Things?</span>
                 </h1>
 
-                {/* Robot mascot via Lottie */}
                 <div className="mt-10 mb-8 flex items-center justify-center">
                   <Lottie
                     animationData={chatBotAnimation}
