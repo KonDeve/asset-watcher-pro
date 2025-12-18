@@ -402,7 +402,7 @@ export default function Profile() {
                 Help & Support
               </CardTitle>
               <CardDescription>
-                Get help with using Asset Watcher Pro
+                Get help with the app
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -491,7 +491,7 @@ export default function Profile() {
               {/* App Info */}
               <div className="flex items-center justify-between pt-2">
                 <div>
-                  <p className="text-sm font-medium text-foreground">Asset Watcher Pro</p>
+                  <p className="text-sm font-medium text-foreground"></p>
                   <p className="text-xs text-muted-foreground">Version 1.0.0</p>
                 </div>
                 <Button variant="outline" size="sm">

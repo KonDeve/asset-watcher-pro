@@ -38,7 +38,7 @@ export default function Login() {
         <div className="absolute inset-0 bg-gradient-to-br from-primary to-primary/80" />
         <div className="relative z-10 flex flex-col justify-between p-12 text-primary-foreground">
           <div>
-            <h1 className="text-2xl font-bold">Strive</h1>
+            <h1 className="text-2xl font-bold"></h1>
           </div>
           <div className="space-y-4">
             <h2 className="text-4xl font-bold leading-tight">
@@ -52,7 +52,7 @@ export default function Login() {
             </p>
           </div>
           <p className="text-sm text-primary-foreground/60">
-            © 2025 Strive. All rights reserved.
+            © 2025 . All rights reserved.
           </p>
         </div>
         {/* Decorative elements */}
@@ -65,7 +65,7 @@ export default function Login() {
         <div className="w-full max-w-md space-y-8">
           {/* Mobile logo */}
           <div className="lg:hidden text-center mb-8">
-            <h1 className="text-2xl font-bold text-foreground">Strive</h1>
+            <h1 className="text-2xl font-bold text-foreground"></h1>
           </div>
 
           <div className="space-y-2 text-center">
