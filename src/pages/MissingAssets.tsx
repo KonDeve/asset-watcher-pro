@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { StatusBadge } from "@/components/StatusBadge";
 import { DesignerAvatar } from "@/components/DesignerAvatar";
@@ -76,8 +76,15 @@ export default function MissingAssets() {
   const { providers: providerOptions } = useProviders();
   const showLoader = useMinimumLoader(loading, 1500);
 
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<AssetStatus | "all">("all");
+  const [searchQuery, setSearchQuery] = useState(() => localStorage.getItem("missingAssetsSearch") || "");
+  const [statusFilter, setStatusFilter] = useState<AssetStatus | "all">(() => {
+    const saved = localStorage.getItem("missingAssetsStatus");
+    return saved && saved !== "" ? (saved as AssetStatus | "all") : "all";
+  });
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">(() => {
+    const saved = localStorage.getItem("missingAssetsSortOrder");
+    return saved === "desc" ? "desc" : "asc";
+  });
   const [selectedAsset, setSelectedAsset] = useState<MissingAsset | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const { toast } = useToast();
@@ -99,15 +106,41 @@ export default function MissingAssets() {
   });
 
   // Multi-select filters
-  const [selectedProviders, setSelectedProviders] = useState<string[]>([]);
-  const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
-  const [selectedDesigners, setSelectedDesigners] = useState<string[]>([]);
+  const [selectedProviders, setSelectedProviders] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem("missingAssetsProviders");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [selectedBrands, setSelectedBrands] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem("missingAssetsBrands");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [selectedDesigners, setSelectedDesigners] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem("missingAssetsDesigners");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [showFilters, setShowFilters] = useState(false);
   const [page, setPage] = useState(() => {
     const saved = Number.parseInt(localStorage.getItem("missingAssetsPage") || "1", 10);
     return Number.isNaN(saved) || saved < 1 ? 1 : saved;
   });
-  const pageSize = 10;
+  const [pageSize, setPageSize] = useState(() => {
+    const saved = Number.parseInt(localStorage.getItem("missingAssetsPageSize") || "10", 10);
+    if (Number.isNaN(saved) || saved < 10) return 10;
+    if (saved > 100) return 100;
+    return saved;
+  });
 
   // Drag-to-fill state
   const [isDragging, setIsDragging] = useState(false);
@@ -132,6 +165,34 @@ export default function MissingAssets() {
   useEffect(() => {
     localStorage.setItem("assetViewMode", viewMode);
   }, [viewMode]);
+
+  useEffect(() => {
+    localStorage.setItem("missingAssetsSearch", searchQuery);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    localStorage.setItem("missingAssetsStatus", statusFilter);
+  }, [statusFilter]);
+
+  useEffect(() => {
+    localStorage.setItem("missingAssetsProviders", JSON.stringify(selectedProviders));
+  }, [selectedProviders]);
+
+  useEffect(() => {
+    localStorage.setItem("missingAssetsBrands", JSON.stringify(selectedBrands));
+  }, [selectedBrands]);
+
+  useEffect(() => {
+    localStorage.setItem("missingAssetsDesigners", JSON.stringify(selectedDesigners));
+  }, [selectedDesigners]);
+
+  useEffect(() => {
+    localStorage.setItem("missingAssetsSortOrder", sortOrder);
+  }, [sortOrder]);
+
+  useEffect(() => {
+    localStorage.setItem("missingAssetsPageSize", String(pageSize));
+  }, [pageSize]);
 
   // Drop selections that no longer exist
   useEffect(() => {
@@ -178,14 +239,21 @@ export default function MissingAssets() {
     return matchesSearch && matchesStatus && matchesProvider && matchesBrand && matchesDesigner;
   });
 
-  const totalPages = Math.max(1, Math.ceil(filteredAssets.length / pageSize));
+  const sortedAssets = useMemo(() => {
+    const arr = [...filteredAssets];
+    arr.sort((a, b) => a.gameName.localeCompare(b.gameName));
+    if (sortOrder === "desc") arr.reverse();
+    return arr;
+  }, [filteredAssets, sortOrder]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedAssets.length / pageSize));
   const clampedPage = Math.min(page, totalPages);
-  const paginatedAssets = filteredAssets.slice(
+  const paginatedAssets = sortedAssets.slice(
     (clampedPage - 1) * pageSize,
     clampedPage * pageSize
   );
-  const showingStart = filteredAssets.length === 0 ? 0 : (clampedPage - 1) * pageSize + 1;
-  const showingEnd = Math.min(clampedPage * pageSize, filteredAssets.length);
+  const showingStart = sortedAssets.length === 0 ? 0 : (clampedPage - 1) * pageSize + 1;
+  const showingEnd = Math.min(clampedPage * pageSize, sortedAssets.length);
 
   useEffect(() => {
     if (!didInitFilters.current) {
@@ -197,9 +265,9 @@ export default function MissingAssets() {
 
   useEffect(() => {
     if (loading) return;
-    const maxPage = Math.max(1, Math.ceil(filteredAssets.length / pageSize));
+    const maxPage = Math.max(1, Math.ceil(sortedAssets.length / pageSize));
     setPage((prev) => (prev > maxPage ? maxPage : prev));
-  }, [loading, filteredAssets.length, pageSize]);
+  }, [loading, sortedAssets.length, pageSize]);
 
   useEffect(() => {
     localStorage.setItem("missingAssetsPage", String(clampedPage));
@@ -214,27 +282,6 @@ export default function MissingAssets() {
     setSelectedDesigners([]);
     setStatusFilter("all");
     setSearchQuery("");
-  };
-
-  const handleCopyDoc = (asset: MissingAsset) => {
-    const text = `Game Name: ${asset.gameName}
-Provider: ${asset.provider}
-Brand: ${asset.brands.map((b) => b.name).join(", ")}
-Status: ${statusConfig[asset.status].label}
-Notes: ${asset.notes || "N/A"}`;
-
-    navigator.clipboard.writeText(text);
-    toast({
-      title: "Copied to clipboard",
-      description: "Asset details have been copied.",
-    });
-  };
-
-  const handleShare = (asset: MissingAsset) => {
-    toast({
-      title: "Share link created",
-      description: "Link copied to clipboard (demo)",
-    });
   };
 
   const toggleSelect = (id: string) => {
@@ -647,49 +694,49 @@ Notes: ${asset.notes || "N/A"}`;
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-9 w-9"
-                          onClick={refetch}
-                          disabled={loading}
-                        >
-                          <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Refresh assets (manual fetch)</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+                  <div className="flex items-center gap-2">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-9 w-9"
+                            onClick={refetch}
+                            disabled={loading}
+                          >
+                            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Refresh assets (manual fetch)</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
 
-                  {/* View Toggle */}
-                  <div className="flex items-center bg-muted rounded-lg p-0.5">
-                    <Toggle
-                      pressed={viewMode === "table"}
-                      onPressedChange={() => setViewMode("table")}
-                      size="sm"
-                      className="h-7 px-2.5 data-[state=on]:bg-background data-[state=on]:shadow-sm"
-                    >
-                      <TableIcon className="w-4 h-4" />
-                    </Toggle>
-                    <Toggle
-                      pressed={viewMode === "board"}
-                      onPressedChange={() => setViewMode("board")}
-                      size="sm"
-                      className="h-7 px-2.5 data-[state=on]:bg-background data-[state=on]:shadow-sm"
-                    >
-                      <Folder className="w-4 h-4" />
-                    </Toggle>
+                    {/* View Toggle */}
+                    <div className="flex items-center bg-muted rounded-lg p-0.5">
+                      <Toggle
+                        pressed={viewMode === "table"}
+                        onPressedChange={() => setViewMode("table")}
+                        size="sm"
+                        className="h-7 px-2.5 data-[state=on]:bg-background data-[state=on]:shadow-sm"
+                      >
+                        <TableIcon className="w-4 h-4" />
+                      </Toggle>
+                      <Toggle
+                        pressed={viewMode === "board"}
+                        onPressedChange={() => setViewMode("board")}
+                        size="sm"
+                        className="h-7 px-2.5 data-[state=on]:bg-background data-[state=on]:shadow-sm"
+                      >
+                        <Folder className="w-4 h-4" />
+                      </Toggle>
+                    </div>
+
+                    <Button onClick={() => setShowAddModal(true)} size="sm">
+                      <Plus className="w-4 h-4 mr-1" />
+                      Add Asset
+                    </Button>
                   </div>
-
-                  <Button onClick={() => setShowAddModal(true)} size="sm">
-                    <Plus className="w-4 h-4 mr-1" />
-                    Add Asset
-                  </Button>
-                </div>
               </div>
 
               {/* Filters Row */}
@@ -734,6 +781,34 @@ Notes: ${asset.notes || "N/A"}`;
                     {Object.entries(statusConfig).map(([key, config]) => (
                       <SelectItem key={key} value={key}>
                         {config.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {/* Sort Order */}
+                <Select value={sortOrder} onValueChange={(v) => setSortOrder(v as "asc" | "desc")}>
+                  <SelectTrigger className="w-full lg:w-36 h-9">
+                    <SelectValue placeholder="Sort" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="asc">A → Z</SelectItem>
+                    <SelectItem value="desc">Z → A</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {/* Page size */}
+                <Select
+                  value={String(pageSize)}
+                  onValueChange={(v) => setPageSize(Math.min(100, Math.max(10, Number(v))))}
+                >
+                  <SelectTrigger className="w-full lg:w-32 h-9">
+                    <SelectValue placeholder="Rows" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[10, 20, 30, 40, 50, 75, 100].map((size) => (
+                      <SelectItem key={size} value={String(size)}>
+                        {size} / page
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -1058,13 +1133,12 @@ Notes: ${asset.notes || "N/A"}`;
           ) : (
             /* Provider Folder View */
             <ProviderFolderView
-              assets={filteredAssets}
+              assets={sortedAssets}
               designers={designers}
               onStatusChange={handleStatusChange}
               onDesignerChange={handleDesignerChange}
               onAssetClick={setSelectedAsset}
-              onCopyDoc={handleCopyDoc}
-              onShare={handleShare}
+              onDeleteRequest={(asset) => setDeleteConfirm(asset)}
             />
           )}
         </div>

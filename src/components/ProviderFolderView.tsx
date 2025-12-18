@@ -17,12 +17,11 @@ import {
   ChevronRight,
   ChevronDown,
   Gamepad2,
-  Copy,
-  Share2,
   CheckCircle2,
   XCircle,
   ArrowLeft,
   GripVertical,
+  Trash2,
 } from "lucide-react";
 
 interface ProviderFolderViewProps {
@@ -31,8 +30,7 @@ interface ProviderFolderViewProps {
   onStatusChange: (assetId: string, status: AssetStatus) => void;
   onDesignerChange: (assetId: string, designerId: string) => void;
   onAssetClick: (asset: MissingAsset) => void;
-  onCopyDoc: (asset: MissingAsset) => void;
-  onShare: (asset: MissingAsset) => void;
+  onDeleteRequest: (asset: MissingAsset) => void;
 }
 
 export function ProviderFolderView({
@@ -41,8 +39,7 @@ export function ProviderFolderView({
   onStatusChange,
   onDesignerChange,
   onAssetClick,
-  onCopyDoc,
-  onShare,
+  onDeleteRequest,
 }: ProviderFolderViewProps) {
   const [openProvider, setOpenProvider] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -380,28 +377,18 @@ export function ProviderFolderView({
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center justify-end gap-0.5">
+                    <div className="flex items-center justify-end">
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7 hover:bg-muted rounded transition-colors"
+                        className="h-7 w-7 hover:bg-destructive/10 text-destructive"
                         onClick={(e) => {
                           e.stopPropagation();
-                          onCopyDoc(asset);
+                          onDeleteRequest(asset);
                         }}
+                        aria-label="Delete asset"
                       >
-                        <Copy className="w-3.5 h-3.5 text-muted-foreground" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 hover:bg-muted rounded transition-colors"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onShare(asset);
-                        }}
-                      >
-                        <Share2 className="w-3.5 h-3.5 text-muted-foreground" />
+                        <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
                   </td>
