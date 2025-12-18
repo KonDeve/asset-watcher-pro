@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { MissingAsset, Brand } from "@/types/asset";
 import { useBrands, useProviders } from "@/hooks/useData";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -40,6 +41,7 @@ export function AddAssetModal({ open, onClose, onAdd, onAddBrandsToExisting, exi
   const { brands: brandOptions } = useBrands();
   const { providers: providerOptions } = useProviders();
   const { profile } = useCurrentUser();
+  const { toast } = useToast();
   
   const [gameNames, setGameNames] = useState("");
   const [provider, setProvider] = useState("");
@@ -51,6 +53,15 @@ export function AddAssetModal({ open, onClose, onAdd, onAddBrandsToExisting, exi
   // Duplicate detection state
   const [duplicateAsset, setDuplicateAsset] = useState<DuplicateAsset | null>(null);
   const [brandsToAdd, setBrandsToAdd] = useState<string[]>([]);
+  const [multiDuplicates, setMultiDuplicates] = useState<string[]>([]);
+  const [pendingNewAssets, setPendingNewAssets] = useState<MissingAsset[]>([]);
+  const [pendingDuplicateUpdates, setPendingDuplicateUpdates] = useState<{
+    name: string;
+    existing: MissingAsset;
+    newBrands: Brand[];
+  }[]>([]);
+  const [liveDuplicates, setLiveDuplicates] = useState<string[]>([]);
+  const [liveDupPage, setLiveDupPage] = useState(1);
 
   // Get local datetime string in the format required by datetime-local input
   const getLocalDateTime = () => {
@@ -87,6 +98,30 @@ export function AddAssetModal({ open, onClose, onAdd, onAddBrandsToExisting, exi
     ) || null;
   };
 
+  // Live duplicate detection while typing (requires provider selection)
+  useEffect(() => {
+    if (!provider) {
+      setLiveDuplicates([]);
+      setLiveDupPage(1);
+      return;
+    }
+
+    const parsedNames = gameNames
+      .split("\n")
+      .map((name) => name.trim())
+      .filter((name) => name.length > 0);
+
+    const dupes = new Set<string>();
+    parsedNames.forEach((name) => {
+      if (findDuplicate(name, provider)) {
+        dupes.add(name);
+      }
+    });
+
+    setLiveDuplicates(Array.from(dupes));
+    setLiveDupPage(1);
+  }, [gameNames, provider, existingAssets]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -111,8 +146,8 @@ export function AddAssetModal({ open, onClose, onAdd, onAddBrandsToExisting, exi
       const duplicate = findDuplicate(parsedNames[0], provider);
       if (duplicate) {
         // Get brands that aren't already on the existing asset
-        const existingBrandIds = duplicate.brands.map((b) => b.id.split("-")[0]);
-        const newBrandIds = selectedBrands.filter((id) => !existingBrandIds.includes(id));
+        const existingBrandIds = new Set(duplicate.brands.map((b) => b.id));
+        const newBrandIds = selectedBrands.filter((id) => !existingBrandIds.has(id));
         
         if (newBrandIds.length === 0) {
           // All selected brands already exist on this asset
@@ -129,12 +164,14 @@ export function AddAssetModal({ open, onClose, onAdd, onAddBrandsToExisting, exi
     // For multiple games, check each one
     if (parsedNames.length > 1) {
       const newAssets: MissingAsset[] = [];
-      const duplicates: { name: string; existing: MissingAsset }[] = [];
+      const duplicates: { name: string; existing: MissingAsset; newBrands: Brand[] }[] = [];
 
       parsedNames.forEach((name, index) => {
         const duplicate = findDuplicate(name, provider);
         if (duplicate) {
-          duplicates.push({ name, existing: duplicate });
+          const existingBrandIds = new Set(duplicate.brands.map((b) => b.id));
+          const newBrands = brands.filter((b) => !existingBrandIds.has(b.id));
+          duplicates.push({ name, existing: duplicate, newBrands });
         } else {
           const newAsset: MissingAsset = {
             id: `${Date.now()}-${index}`,
@@ -153,18 +190,16 @@ export function AddAssetModal({ open, onClose, onAdd, onAddBrandsToExisting, exi
         }
       });
 
-      // Add all non-duplicate assets
+      if (duplicates.length > 0) {
+        const duplicateList = duplicates.map((d) => `${d.name} (${d.existing.provider})`);
+        setPendingNewAssets(newAssets);
+        setPendingDuplicateUpdates(duplicates);
+        setMultiDuplicates(duplicateList);
+        return;
+      }
+
+      // No duplicates, add all immediately
       newAssets.forEach((asset) => onAdd(asset));
-
-      // For duplicates, add new brands to existing assets
-      duplicates.forEach(({ existing }) => {
-        const existingBrandIds = existing.brands.map((b) => b.id.split("-")[0]);
-        const newBrands = brands.filter((b) => !existingBrandIds.includes(b.id));
-        if (newBrands.length > 0) {
-          onAddBrandsToExisting(existing.id, newBrands);
-        }
-      });
-
       resetForm();
       return;
     }
@@ -223,6 +258,29 @@ export function AddAssetModal({ open, onClose, onAdd, onAddBrandsToExisting, exi
     setBrandsToAdd([]);
   };
 
+  const closeMultiDuplicateWarning = () => {
+    setPendingNewAssets([]);
+    setPendingDuplicateUpdates([]);
+    setMultiDuplicates([]);
+  };
+
+  const handleConfirmMultiAdd = () => {
+    pendingNewAssets.forEach((asset) => onAdd(asset));
+    pendingDuplicateUpdates.forEach(({ existing, newBrands }) => {
+      if (newBrands.length > 0) {
+        onAddBrandsToExisting(existing.id, newBrands);
+      }
+    });
+
+    toast({
+      title: "Assets processed",
+      description: `${pendingNewAssets.length} new added. Duplicates kept in table.`,
+    });
+
+    closeMultiDuplicateWarning();
+    resetForm();
+  };
+
   const resetForm = () => {
     setGameNames("");
     setProvider("");
@@ -273,6 +331,62 @@ export function AddAssetModal({ open, onClose, onAdd, onAddBrandsToExisting, exi
               placeholder="Enter game name(s), one per line for multiple games"
               className="min-h-24 text-sm"
             />
+            {provider && liveDuplicates.length > 0 && (
+              <div className="rounded-md border border-amber-200 bg-amber-50 text-amber-900 p-3 space-y-2 text-sm">
+                <div className="flex items-center justify-between font-medium">
+                  <span>Already in table</span>
+                  <span className="text-xs text-amber-900/80">{liveDuplicates.length} match{liveDuplicates.length !== 1 ? "es" : ""}</span>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {liveDuplicates.slice((liveDupPage - 1) * 6, liveDupPage * 6).map((name) => (
+                    <span
+                      key={name}
+                      className="inline-flex items-center rounded-full bg-white/70 px-3 py-1 text-amber-900 border border-amber-100"
+                    >
+                      {name}
+                    </span>
+                  ))}
+                </div>
+
+                <div className="flex items-center justify-between text-xs text-amber-900/80">
+                  <span>
+                    Showing {(liveDupPage - 1) * 6 + 1}–{Math.min(liveDupPage * 6, liveDuplicates.length)} of {liveDuplicates.length}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2"
+                      disabled={liveDupPage === 1}
+                      onClick={() => setLiveDupPage((p) => Math.max(1, p - 1))}
+                    >
+                      Prev
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2"
+                      disabled={liveDupPage * 6 >= liveDuplicates.length}
+                      onClick={() =>
+                        setLiveDupPage((p) =>
+                          p * 6 >= liveDuplicates.length ? p : p + 1
+                        )
+                      }
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+
+                <p className="text-xs text-amber-900/80">They will be skipped unless you add new brands and confirm.</p>
+              </div>
+            )}
+            {!provider && parsedGameCount > 0 && (
+              <p className="text-xs text-muted-foreground">Select a provider to check for existing titles.</p>
+            )}
           </div>
 
           {/* Provider */}
@@ -412,8 +526,8 @@ export function AddAssetModal({ open, onClose, onAdd, onAddBrandsToExisting, exi
 
               {/* Add Brands Section */}
               {(() => {
-                const existingBrandIds = duplicateAsset.existingAsset.brands.map((b) => b.id.split("-")[0]);
-                const availableBrands = brandOptions.filter((b) => !existingBrandIds.includes(b.id));
+                const existingBrandIds = new Set(duplicateAsset.existingAsset.brands.map((b) => b.id));
+                const availableBrands = brandOptions.filter((b) => !existingBrandIds.has(b.id));
                 
                 if (availableBrands.length === 0) {
                   return (
@@ -467,6 +581,38 @@ export function AddAssetModal({ open, onClose, onAdd, onAddBrandsToExisting, exi
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Multi-entry duplicate warning */}
+      <Dialog open={multiDuplicates.length > 0} onOpenChange={closeMultiDuplicateWarning}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-amber-500" />
+              Some games already exist
+            </DialogTitle>
+            <DialogDescription>
+              These titles were detected as duplicates and were not added again.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <div className="rounded-md border border-border bg-muted/40 p-3">
+              <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
+                {multiDuplicates.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Confirm to add the new titles and apply any new brands to the existing ones.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={closeMultiDuplicateWarning}>Cancel</Button>
+              <Button onClick={handleConfirmMultiAdd}>Confirm</Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </Dialog>

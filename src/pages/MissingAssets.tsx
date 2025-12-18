@@ -18,8 +18,6 @@ import {
 import {
   Search,
   Plus,
-  Copy,
-  Share2,
   CheckCircle2,
   XCircle,
   GripVertical,
@@ -31,6 +29,7 @@ import {
   RefreshCw,
   ChevronLeft,
   ChevronRight,
+  Trash2,
 } from "lucide-react";
 import { AssetDetailsPanel } from "@/components/AssetDetailsPanel";
 import { AddAssetModal } from "@/components/AddAssetModal";
@@ -40,6 +39,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAssets, useDesigners, useBrands, useProviders } from "@/hooks/useData";
 import { Toggle } from "@/components/ui/toggle";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -68,6 +68,7 @@ export default function MissingAssets() {
     updateBrandReflection,
     addBrandsToAsset,
     updateAssetBrands,
+    deleteAsset,
     refetch,
   } = useAssets();
   const { designers } = useDesigners();
@@ -80,6 +81,9 @@ export default function MissingAssets() {
   const [selectedAsset, setSelectedAsset] = useState<MissingAsset | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const { toast } = useToast();
+  const [deleteConfirm, setDeleteConfirm] = useState<MissingAsset | null>(null);
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   // Status change confirmation for uploaded assets
   const [statusChangeConfirm, setStatusChangeConfirm] = useState<{
@@ -128,6 +132,11 @@ export default function MissingAssets() {
   useEffect(() => {
     localStorage.setItem("assetViewMode", viewMode);
   }, [viewMode]);
+
+  // Drop selections that no longer exist
+  useEffect(() => {
+    setSelectedIds((prev) => prev.filter((id) => assets.some((a) => a.id === id)));
+  }, [assets]);
 
   // Filter options
   const providerFilterOptions: MultiSelectOption[] = providerOptions.map((p) => ({
@@ -226,6 +235,71 @@ Notes: ${asset.notes || "N/A"}`;
       title: "Share link created",
       description: "Link copied to clipboard (demo)",
     });
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectPage = () => {
+    const pageIds = paginatedAssets.map((a) => a.id);
+    const allSelected = pageIds.every((id) => selectedIds.includes(id));
+    if (allSelected) {
+      setSelectedIds((prev) => prev.filter((id) => !pageIds.includes(id)));
+    } else {
+      setSelectedIds((prev) => Array.from(new Set([...prev, ...pageIds])));
+    }
+  };
+
+  const handleDeleteAsset = async () => {
+    if (!deleteConfirm) return;
+    const assetName = deleteConfirm.gameName;
+    const success = await deleteAsset(deleteConfirm.id);
+    if (success) {
+      if (selectedAsset?.id === deleteConfirm.id) {
+        setSelectedAsset(null);
+      }
+      toast({
+        title: "Asset deleted",
+        description: `${assetName} has been removed.`,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Delete failed",
+        description: "Could not delete asset. Please try again.",
+        variant: "destructive",
+      });
+    }
+    setDeleteConfirm(null);
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    const idsToDelete = selectedIds;
+    const results = await Promise.all(idsToDelete.map((id) => deleteAsset(id)));
+    const successes = results.filter(Boolean).length;
+    const failures = idsToDelete.length - successes;
+
+    setSelectedIds((prev) => prev.filter((id) => !idsToDelete.includes(id)));
+    setBulkDeleteConfirm(false);
+
+    if (successes > 0) {
+      toast({
+        title: "Assets deleted",
+        description: `Removed ${successes} asset${successes !== 1 ? "s" : ""}.`,
+        variant: "destructive",
+      });
+    }
+    if (failures > 0) {
+      toast({
+        title: "Some deletions failed",
+        description: `${failures} item${failures !== 1 ? "s" : ""} could not be removed.`,
+        variant: "destructive",
+      });
+    }
   };
 
   const handleStatusChange = (assetId: string, newStatus: AssetStatus) => {
@@ -719,7 +793,17 @@ Notes: ${asset.notes || "N/A"}`;
                 <table ref={tableRef} className="w-full border-collapse select-none">
                   <thead className="sticky top-0 z-10">
                     <tr className="bg-muted/80 backdrop-blur-sm border-b border-border">
-                      <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-4 py-3">
+                      <th className="w-10 px-4 py-3">
+                        <Checkbox
+                          aria-label="Select page"
+                          checked={
+                            paginatedAssets.length > 0 &&
+                            paginatedAssets.every((a) => selectedIds.includes(a.id))
+                          }
+                          onCheckedChange={toggleSelectPage}
+                        />
+                      </th>
+                      <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2 py-3">
                         Game Name
                       </th>
                       <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-4 py-3">
@@ -761,7 +845,14 @@ Notes: ${asset.notes || "N/A"}`;
                           ${isInDragRange(index) && dragType === "designer" ? "!bg-blue-500/15" : ""}
                         `}
                       >
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            aria-label="Select asset"
+                            checked={selectedIds.includes(asset.id)}
+                            onCheckedChange={() => toggleSelect(asset.id)}
+                          />
+                        </td>
+                        <td className="px-2 py-3">
                           <div className="flex items-center gap-2">
                             <Gamepad2 className="w-4 h-4 text-muted-foreground" />
                             <p className="font-medium text-foreground text-sm">
@@ -872,28 +963,18 @@ Notes: ${asset.notes || "N/A"}`;
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          <div className="flex items-center justify-end gap-0.5">
+                          <div className="flex items-center justify-end">
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-7 w-7 hover:bg-muted rounded transition-colors"
+                              className="h-7 w-7 hover:bg-destructive/10 text-destructive"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleCopyDoc(asset);
+                                setDeleteConfirm(asset);
                               }}
+                              aria-label="Delete asset"
                             >
-                              <Copy className="w-3.5 h-3.5 text-muted-foreground" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 hover:bg-muted rounded transition-colors"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleShare(asset);
-                              }}
-                            >
-                              <Share2 className="w-3.5 h-3.5 text-muted-foreground" />
+                              <Trash2 className="w-4 h-4" />
                             </Button>
                           </div>
                         </td>
@@ -904,35 +985,61 @@ Notes: ${asset.notes || "N/A"}`;
               </div>
 
               {filteredAssets.length > 0 && (
-                <div className="sticky bottom-0 left-0 right-0 flex items-center justify-between px-3 py-3 text-sm text-muted-foreground border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:backdrop-blur-sm">
-                  <span>
-                    Showing {showingStart}-{showingEnd} of {filteredAssets.length}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
-                      disabled={clampedPage === 1}
-                      className="h-8 px-2"
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                      Prev
-                    </Button>
-                    <span className="text-xs">
-                      Page {clampedPage} of {totalPages}
+                <div className="sticky bottom-0 left-0 right-0 flex flex-col gap-2 px-3 py-3 text-sm text-muted-foreground border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:backdrop-blur-sm">
+                  <div className="flex items-center justify-between">
+                    <span>
+                      Showing {showingStart}-{showingEnd} of {filteredAssets.length}
                     </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                      disabled={clampedPage === totalPages}
-                      className="h-8 px-2"
-                    >
-                      Next
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                        disabled={clampedPage === 1}
+                        className="h-8 px-2"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                        Prev
+                      </Button>
+                      <span className="text-xs">
+                        Page {clampedPage} of {totalPages}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                        disabled={clampedPage === totalPages}
+                        className="h-8 px-2"
+                      >
+                        Next
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
+
+                  {selectedIds.length > 0 && (
+                    <div className="flex items-center justify-between rounded-md border border-border bg-muted/50 px-3 py-2 text-xs text-foreground">
+                      <span className="font-medium">{selectedIds.length} selected</span>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 px-2"
+                          onClick={() => setSelectedIds([])}
+                        >
+                          Clear
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          className="h-7 px-2"
+                          onClick={() => setBulkDeleteConfirm(true)}
+                        >
+                          <Trash2 className="w-4 h-4 mr-1" /> Delete selected
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1012,6 +1119,51 @@ Notes: ${asset.notes || "N/A"}`;
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={confirmStatusChange}>
               Accept
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteConfirm} onOpenChange={(open) => !open && setDeleteConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-amber-500" />
+              Delete Asset?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove {deleteConfirm?.gameName} from the list. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDeleteConfirm(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteAsset} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <AlertDialog open={bulkDeleteConfirm} onOpenChange={(open) => setBulkDeleteConfirm(open)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-amber-500" />
+              Delete selected assets?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {selectedIds.length} asset{selectedIds.length !== 1 ? "s" : ""} will be permanently removed. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setBulkDeleteConfirm(false)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
