@@ -107,6 +107,8 @@ export default function MissingAssets() {
   const [bulkGamesInput, setBulkGamesInput] = useState("");
   const [bulkStatus, setBulkStatus] = useState<AssetStatus | null>(null);
   const [bulkDesigner, setBulkDesigner] = useState<string | null>(null);
+  const [bulkProvider, setBulkProvider] = useState<string | null>(null);
+  const [bulkProviderFilter, setBulkProviderFilter] = useState("");
   const [bulkBusy, setBulkBusy] = useState(false);
 
   // Status change confirmation for uploaded assets
@@ -235,6 +237,14 @@ export default function MissingAssets() {
       label: d.name,
     })),
   ];
+
+  const filteredBulkProviders = useMemo(
+    () =>
+      providerOptions.filter((p) =>
+        p.toLowerCase().includes(bulkProviderFilter.trim().toLowerCase())
+      ),
+    [providerOptions, bulkProviderFilter]
+  );
 
   const normalizeName = (name: string) => name.toLowerCase().trim().replace(/\s+/g, " ");
 
@@ -548,6 +558,11 @@ export default function MissingAssets() {
       .map((n) => n.trim())
       .filter((n) => n.length > 0);
 
+    if (!bulkProvider) {
+      toast({ title: "Select provider", description: "Pick the provider to match these titles." });
+      return;
+    }
+
     if (names.length === 0 || !bulkStatus) {
       toast({ title: "Add details", description: "Add at least one game and choose a status." });
       return;
@@ -560,10 +575,13 @@ export default function MissingAssets() {
 
     setBulkBusy(true);
 
+    const providerLower = bulkProvider.toLowerCase();
     const nameMap = new Map<string, MissingAsset>();
-    assets.forEach((asset) => {
-      nameMap.set(normalizeName(asset.gameName), asset);
-    });
+    assets
+      .filter((asset) => asset.provider.toLowerCase() === providerLower)
+      .forEach((asset) => {
+        nameMap.set(normalizeName(asset.gameName), asset);
+      });
 
     const matched: MissingAsset[] = [];
     const missing: string[] = [];
@@ -628,6 +646,7 @@ export default function MissingAssets() {
       setBulkGamesInput("");
       setBulkStatus(null);
       setBulkDesigner(null);
+      setBulkProvider(null);
       setShowBulkUpdateModal(false);
     }
     } catch (err) {
@@ -1473,6 +1492,35 @@ export default function MissingAssets() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Provider</label>
+                <Select value={bulkProvider ?? undefined} onValueChange={(v) => setBulkProvider(v)}>
+                  <SelectTrigger className="h-10">
+                    <SelectValue placeholder="Choose provider" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <div className="p-2 pb-1">
+                      <Input
+                        value={bulkProviderFilter}
+                        onChange={(e) => setBulkProviderFilter(e.target.value)}
+                        placeholder="Search provider"
+                        className="h-8"
+                      />
+                    </div>
+                    {filteredBulkProviders.length === 0 && (
+                      <SelectItem value="" disabled>
+                        No provider found
+                      </SelectItem>
+                    )}
+                    {filteredBulkProviders.map((p) => (
+                      <SelectItem key={p} value={p}>
+                        {p}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">Status</label>
                 <Select value={bulkStatus ?? undefined} onValueChange={(v) => setBulkStatus(v as AssetStatus)}>
                   <SelectTrigger className="h-10">
@@ -1507,7 +1555,7 @@ export default function MissingAssets() {
             </div>
 
             <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-              Tip: If a title isn’t found, it stays untouched. Use the designer button only when you want to assign or clear ownership.
+              Tip: Matching is scoped to the selected provider. If a title isn’t found, it stays untouched. Use the designer button only when you want to assign or clear ownership.
             </div>
           </div>
 
@@ -1524,14 +1572,14 @@ export default function MissingAssets() {
             </Button>
             <Button
               onClick={() => handleBulkStatusUpdate(false)}
-              disabled={bulkBusy || !bulkStatus}
+              disabled={bulkBusy || !bulkStatus || !bulkProvider}
             >
               {bulkBusy ? "Updating..." : "Update Status"}
             </Button>
             <Button
               variant="secondary"
               onClick={() => handleBulkStatusUpdate(true)}
-              disabled={bulkBusy || !bulkStatus || !bulkDesigner}
+              disabled={bulkBusy || !bulkStatus || !bulkDesigner || !bulkProvider}
             >
               {bulkBusy ? "Updating..." : "Update Status + Designer"}
             </Button>
