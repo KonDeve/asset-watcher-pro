@@ -7,6 +7,7 @@ import { PageLoader } from "@/components/PageLoader";
 import { useMinimumLoader } from "@/hooks/use-minimum-loader";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -30,6 +31,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Trash2,
+  ListChecks,
 } from "lucide-react";
 import { AssetDetailsPanel } from "@/components/AssetDetailsPanel";
 import { AddAssetModal } from "@/components/AddAssetModal";
@@ -40,6 +42,14 @@ import { useAssets, useDesigners, useBrands, useProviders } from "@/hooks/useDat
 import { Toggle } from "@/components/ui/toggle";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -77,6 +87,8 @@ export default function MissingAssets() {
   const showLoader = useMinimumLoader(loading, 1500);
 
   const [searchQuery, setSearchQuery] = useState(() => localStorage.getItem("missingAssetsSearch") || "");
+  const [showMultiSearchModal, setShowMultiSearchModal] = useState(false);
+  const [multiSearchInput, setMultiSearchInput] = useState("");
   const [statusFilter, setStatusFilter] = useState<AssetStatus | "all">(() => {
     const saved = localStorage.getItem("missingAssetsStatus");
     return saved && saved !== "" ? (saved as AssetStatus | "all") : "all";
@@ -87,10 +99,15 @@ export default function MissingAssets() {
   });
   const [selectedAsset, setSelectedAsset] = useState<MissingAsset | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showBulkUpdateModal, setShowBulkUpdateModal] = useState(false);
   const { toast } = useToast();
   const [deleteConfirm, setDeleteConfirm] = useState<MissingAsset | null>(null);
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkGamesInput, setBulkGamesInput] = useState("");
+  const [bulkStatus, setBulkStatus] = useState<AssetStatus | null>(null);
+  const [bulkDesigner, setBulkDesigner] = useState<string | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   // Status change confirmation for uploaded assets
   const [statusChangeConfirm, setStatusChangeConfirm] = useState<{
@@ -219,11 +236,68 @@ export default function MissingAssets() {
     })),
   ];
 
+  const normalizeName = (name: string) => name.toLowerCase().trim().replace(/\s+/g, " ");
+
+  const parsedSearchTerms = useMemo(() =>
+    searchQuery
+      .split("\n")
+      .map((s) => s.trim().toLowerCase())
+      .filter((s) => s.length > 0),
+    [searchQuery]
+  );
+
+  const missingSearchTerms = useMemo(
+    () =>
+      parsedSearchTerms.filter(
+        (term) => !assets.some((a) => normalizeName(a.gameName).includes(term))
+      ),
+    [parsedSearchTerms, assets]
+  );
+
+  const multiSearchTerms = useMemo(
+    () =>
+      multiSearchInput
+        .split("\n")
+        .map((s) => s.trim().toLowerCase())
+        .filter((s) => s.length > 0),
+    [multiSearchInput]
+  );
+
+  const multiSearchMissing = useMemo(
+    () =>
+      multiSearchTerms.filter(
+        (term) => !assets.some((a) => normalizeName(a.gameName).includes(term))
+      ),
+    [multiSearchTerms, assets]
+  );
+
+  const multiSearchMatches = useMemo(
+    () => {
+      if (multiSearchTerms.length === 0) return [] as MissingAsset[];
+      const set = new Set<string>();
+      const results: MissingAsset[] = [];
+      assets.forEach((asset) => {
+        if (multiSearchTerms.some((term) => normalizeName(asset.gameName).includes(term))) {
+          if (!set.has(asset.id)) {
+            set.add(asset.id);
+            results.push(asset);
+          }
+        }
+      });
+      return results;
+    },
+    [multiSearchTerms, assets]
+  );
+
   // Filtered assets (computed even during loading to maintain hook consistency)
+
   const filteredAssets = assets.filter((asset) => {
     const matchesSearch =
-      asset.gameName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      asset.provider.toLowerCase().includes(searchQuery.toLowerCase());
+      parsedSearchTerms.length === 0 ||
+      parsedSearchTerms.some((term) =>
+        asset.gameName.toLowerCase().includes(term) ||
+        asset.provider.toLowerCase().includes(term)
+      );
     const matchesStatus = statusFilter === "all" || asset.status === statusFilter;
     const matchesProvider =
       selectedProviders.length === 0 || selectedProviders.includes(asset.provider);
@@ -464,6 +538,103 @@ export default function MissingAssets() {
       toast({ title: "Asset added", description: `${created.gameName} has been added to the list.` });
     } else {
       toast({ title: "Add failed", description: "Could not add asset.", variant: "destructive" });
+    }
+  };
+
+  const handleBulkStatusUpdate = async (applyDesigner: boolean) => {
+    try {
+    const names = bulkGamesInput
+      .split("\n")
+      .map((n) => n.trim())
+      .filter((n) => n.length > 0);
+
+    if (names.length === 0 || !bulkStatus) {
+      toast({ title: "Add details", description: "Add at least one game and choose a status." });
+      return;
+    }
+
+    if (applyDesigner && !bulkDesigner) {
+      toast({ title: "Select a designer", description: "Choose a designer or set to Unassigned." });
+      return;
+    }
+
+    setBulkBusy(true);
+
+    const nameMap = new Map<string, MissingAsset>();
+    assets.forEach((asset) => {
+      nameMap.set(normalizeName(asset.gameName), asset);
+    });
+
+    const matched: MissingAsset[] = [];
+    const missing: string[] = [];
+
+    names.forEach((name) => {
+      const found = nameMap.get(normalizeName(name));
+      if (found) matched.push(found);
+      else missing.push(name);
+    });
+
+    const safeDesigners = designers || [];
+    const targetDesigner = applyDesigner
+      ? bulkDesigner === "unassigned"
+        ? null
+        : safeDesigners.find((d) => d.id === bulkDesigner) || null
+      : null;
+
+    let statusSuccess = 0;
+    let designerSuccess = 0;
+
+    const updatedAssets = new Map<string, MissingAsset>();
+
+    for (const asset of matched) {
+      const statusOk = await updateStatus(asset.id, bulkStatus);
+      if (statusOk) {
+        statusSuccess += 1;
+        const updated: MissingAsset = { ...asset, status: bulkStatus, updatedAt: new Date().toISOString() };
+        updatedAssets.set(asset.id, updated);
+
+        if (applyDesigner) {
+          const designerOk = await updateDesigner(asset.id, targetDesigner);
+          if (designerOk) {
+            designerSuccess += 1;
+            updatedAssets.set(asset.id, { ...updated, designer: targetDesigner });
+          }
+        }
+      }
+    }
+
+    if (updatedAssets.size > 0) {
+      setAssets((prev) =>
+        prev.map((asset) => updatedAssets.get(asset.id) || asset)
+      );
+    }
+
+    if (selectedAsset && updatedAssets.has(selectedAsset.id)) {
+      setSelectedAsset(updatedAssets.get(selectedAsset.id) || null);
+    }
+
+    const summaries = [] as string[];
+    if (statusSuccess > 0) summaries.push(`${statusSuccess} status updated`);
+    if (applyDesigner) summaries.push(`${designerSuccess} designer set`);
+    if (missing.length > 0) summaries.push(`${missing.length} not found`);
+
+    toast({
+      title: "Bulk update",
+      description: summaries.join(" • ") || "No assets updated",
+      variant: statusSuccess === 0 ? "destructive" : "default",
+    });
+
+    if (missing.length === 0) {
+      setBulkGamesInput("");
+      setBulkStatus(null);
+      setBulkDesigner(null);
+      setShowBulkUpdateModal(false);
+    }
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Update failed", description: "Something went wrong. Check console for details.", variant: "destructive" });
+    } finally {
+      setBulkBusy(false);
     }
   };
 
@@ -732,6 +903,10 @@ export default function MissingAssets() {
                       </Toggle>
                     </div>
 
+                    <Button onClick={() => setShowBulkUpdateModal(true)} variant="outline" size="sm">
+                      <CheckCircle2 className="w-4 h-4 mr-1" />
+                      Quick Status
+                    </Button>
                     <Button onClick={() => setShowAddModal(true)} size="sm">
                       <Plus className="w-4 h-4 mr-1" />
                       Add Asset
@@ -741,15 +916,30 @@ export default function MissingAssets() {
 
               {/* Filters Row */}
               <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
-                {/* Search */}
-                <div className="relative flex-1 max-w-sm">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search games..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9 h-9"
-                  />
+                {/* Search (single) + multi search modal trigger */}
+                <div className="flex items-start gap-2 flex-1 max-w-md">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search games or providers"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-9 h-10"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-10 w-10"
+                    title="Multi-title search"
+                    onClick={() => {
+                      setMultiSearchInput(searchQuery);
+                      setShowMultiSearchModal(true);
+                    }}
+                  >
+                    <ListChecks className="w-4 h-4" />
+                  </Button>
                 </div>
 
                 {/* Filter Toggle */}
@@ -1167,6 +1357,187 @@ export default function MissingAssets() {
         onAddBrandsToExisting={handleAddBrandsToExisting}
         existingAssets={assets}
       />
+
+      {/* Multi-title search modal */}
+      <Dialog open={showMultiSearchModal} onOpenChange={setShowMultiSearchModal}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader className="space-y-1">
+            <DialogTitle className="text-lg font-semibold">Search Multiple Titles</DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              Paste titles (one per line). Matches are shown below; missing ones are flagged.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <Textarea
+              value={multiSearchInput}
+              onChange={(e) => setMultiSearchInput(e.target.value)}
+              placeholder="One title per line"
+              className="min-h-36 bg-muted/40 border-border scrollbar-soft"
+            />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+              <div className="rounded-md border border-border bg-muted/40 p-3 space-y-2">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground text-sm">Matches</span>
+                  <span>{multiSearchMatches.length}</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto scrollbar-soft pr-1">
+                  {multiSearchMatches.length === 0 && (
+                    <span className="text-xs text-muted-foreground">No matches yet</span>
+                  )}
+                  {multiSearchMatches.map((asset) => (
+                    <span
+                      key={asset.id}
+                      className="inline-flex items-center gap-1 rounded-full bg-card px-2 py-1 text-xs border border-border"
+                    >
+                      {asset.gameName}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-md border border-border bg-muted/40 p-3 space-y-2">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground text-sm">Not found</span>
+                  <span>{multiSearchMissing.length}</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto scrollbar-soft pr-1">
+                  {multiSearchMissing.length === 0 && (
+                    <span className="text-xs text-muted-foreground">All terms matched</span>
+                  )}
+                  {multiSearchMissing.map((term) => (
+                    <span
+                      key={term}
+                      className="inline-flex items-center rounded-full border border-destructive/30 bg-destructive/5 px-2 py-1 text-[11px] text-destructive"
+                    >
+                      {term}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => setShowMultiSearchModal(false)}
+            >
+              Close
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setSearchQuery(multiSearchInput);
+                setShowMultiSearchModal(false);
+              }}
+              disabled={multiSearchInput.trim().length === 0}
+            >
+              Apply to list
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk status/designer quick update */}
+      <Dialog open={showBulkUpdateModal} onOpenChange={setShowBulkUpdateModal}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader className="space-y-1">
+            <DialogTitle className="text-lg font-semibold">Quick Status Update</DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              Paste game titles (one per line), choose a status, and optionally assign a designer. We’ll match by exact title.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-5">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm text-muted-foreground">
+                <span className="text-foreground font-medium">Game titles</span>
+                {bulkGamesInput && (
+                  <span>
+                    {bulkGamesInput
+                      .split("\n")
+                      .map((n) => n.trim())
+                      .filter((n) => n.length > 0).length} titles
+                  </span>
+                )}
+              </div>
+              <Textarea
+                value={bulkGamesInput}
+                onChange={(e) => setBulkGamesInput(e.target.value)}
+                placeholder="One title per line"
+                className="min-h-36 bg-muted/50 border-border focus-visible:ring-1 focus-visible:ring-ring scrollbar-soft"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Status</label>
+                <Select value={bulkStatus ?? undefined} onValueChange={(v) => setBulkStatus(v as AssetStatus)}>
+                  <SelectTrigger className="h-10">
+                    <SelectValue placeholder="Choose status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(statusConfig).map(([key, config]) => (
+                      <SelectItem key={key} value={key}>
+                        {config.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Designer (optional)</label>
+                <Select value={bulkDesigner ?? undefined} onValueChange={(v) => setBulkDesigner(v)}>
+                  <SelectTrigger className="h-10">
+                    <SelectValue placeholder="Leave unchanged" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                    {designers.map((d) => (
+                      <SelectItem key={d.id} value={d.id}>
+                        {d.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+              Tip: If a title isn’t found, it stays untouched. Use the designer button only when you want to assign or clear ownership.
+            </div>
+          </div>
+
+          <DialogFooter className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setShowBulkUpdateModal(false);
+                setBulkBusy(false);
+              }}
+              disabled={bulkBusy}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => handleBulkStatusUpdate(false)}
+              disabled={bulkBusy || !bulkStatus}
+            >
+              {bulkBusy ? "Updating..." : "Update Status"}
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => handleBulkStatusUpdate(true)}
+              disabled={bulkBusy || !bulkStatus || !bulkDesigner}
+            >
+              {bulkBusy ? "Updating..." : "Update Status + Designer"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Status Change Confirmation Dialog */}
       <AlertDialog open={!!statusChangeConfirm} onOpenChange={() => setStatusChangeConfirm(null)}>
