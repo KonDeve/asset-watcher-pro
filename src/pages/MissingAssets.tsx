@@ -599,27 +599,33 @@ export default function MissingAssets() {
         : safeDesigners.find((d) => d.id === bulkDesigner) || null
       : null;
 
-    let statusSuccess = 0;
-    let designerSuccess = 0;
-
     const updatedAssets = new Map<string, MissingAsset>();
 
-    for (const asset of matched) {
-      const statusOk = await updateStatus(asset.id, bulkStatus);
-      if (statusOk) {
-        statusSuccess += 1;
-        const updated: MissingAsset = { ...asset, status: bulkStatus, updatedAt: new Date().toISOString() };
-        updatedAssets.set(asset.id, updated);
+    const updateResults = await Promise.all(
+      matched.map(async (asset) => {
+        const statusOk = await updateStatus(asset.id, bulkStatus);
+        let designerOk = false;
+        let updated: MissingAsset | null = null;
 
-        if (applyDesigner) {
-          const designerOk = await updateDesigner(asset.id, targetDesigner);
-          if (designerOk) {
-            designerSuccess += 1;
-            updatedAssets.set(asset.id, { ...updated, designer: targetDesigner });
+        if (statusOk) {
+          updated = { ...asset, status: bulkStatus, updatedAt: new Date().toISOString() };
+
+          if (applyDesigner) {
+            designerOk = await updateDesigner(asset.id, targetDesigner);
+            if (designerOk) {
+              updated = { ...updated, designer: targetDesigner };
+            }
           }
+
+          updatedAssets.set(asset.id, updated);
         }
-      }
-    }
+
+        return { statusOk, designerOk };
+      })
+    );
+
+    const statusSuccess = updateResults.filter((r) => r.statusOk).length;
+    const designerSuccess = updateResults.filter((r) => r.designerOk).length;
 
     if (updatedAssets.size > 0) {
       setAssets((prev) =>
