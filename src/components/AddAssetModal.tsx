@@ -68,7 +68,6 @@ export function AddAssetModal({ open, onClose, onAdd, onAddBrandsToExisting, exi
     newBrands: Brand[];
   }[]>([]);
   const [liveDuplicates, setLiveDuplicates] = useState<string[]>([]);
-  const [liveDupPage, setLiveDupPage] = useState(1);
 
   // Get local datetime string in the format required by datetime-local input
   const getLocalDateTime = () => {
@@ -109,7 +108,6 @@ export function AddAssetModal({ open, onClose, onAdd, onAddBrandsToExisting, exi
   useEffect(() => {
     if (!provider) {
       setLiveDuplicates([]);
-      setLiveDupPage(1);
       return;
     }
 
@@ -126,7 +124,6 @@ export function AddAssetModal({ open, onClose, onAdd, onAddBrandsToExisting, exi
     });
 
     setLiveDuplicates(Array.from(dupes));
-    setLiveDupPage(1);
   }, [gameNames, provider, existingAssets]);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -339,56 +336,24 @@ export function AddAssetModal({ open, onClose, onAdd, onAddBrandsToExisting, exi
               className="min-h-24 text-sm"
             />
             {provider && liveDuplicates.length > 0 && (
-              <div className="rounded-md border border-amber-200 bg-amber-50 text-amber-900 p-3 space-y-2 text-sm">
-                <div className="flex items-center justify-between font-medium">
+              <div className="rounded-md border border-border bg-muted/60 text-foreground p-3 space-y-2 text-sm">
+                <div className="flex items-center justify-between font-medium text-foreground/90">
                   <span>Already in table</span>
-                  <span className="text-xs text-amber-900/80">{liveDuplicates.length} match{liveDuplicates.length !== 1 ? "es" : ""}</span>
+                  <span className="text-xs text-muted-foreground">{liveDuplicates.length} match{liveDuplicates.length !== 1 ? "es" : ""}</span>
                 </div>
 
-                <div className="flex flex-wrap gap-2">
-                  {liveDuplicates.slice((liveDupPage - 1) * 6, liveDupPage * 6).map((name) => (
+                <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto pr-1 scrollbar-thin scrollbar-primary">
+                  {liveDuplicates.map((name) => (
                     <span
                       key={name}
-                      className="inline-flex items-center rounded-full bg-white/70 px-3 py-1 text-amber-900 border border-amber-100"
+                      className="inline-flex items-center rounded-full bg-card px-3 py-1 text-foreground border border-border shadow-sm"
                     >
                       {name}
                     </span>
                   ))}
                 </div>
 
-                <div className="flex items-center justify-between text-xs text-amber-900/80">
-                  <span>
-                    Showing {(liveDupPage - 1) * 6 + 1}–{Math.min(liveDupPage * 6, liveDuplicates.length)} of {liveDuplicates.length}
-                  </span>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-7 px-2"
-                      disabled={liveDupPage === 1}
-                      onClick={() => setLiveDupPage((p) => Math.max(1, p - 1))}
-                    >
-                      Prev
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-7 px-2"
-                      disabled={liveDupPage * 6 >= liveDuplicates.length}
-                      onClick={() =>
-                        setLiveDupPage((p) =>
-                          p * 6 >= liveDuplicates.length ? p : p + 1
-                        )
-                      }
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </div>
-
-                <p className="text-xs text-amber-900/80">They will be skipped unless you add new brands and confirm.</p>
+                <p className="text-xs text-muted-foreground">They will be skipped unless you add new brands and confirm.</p>
               </div>
             )}
             {!provider && parsedGameCount > 0 && (
@@ -645,7 +610,7 @@ export function AddAssetModal({ open, onClose, onAdd, onAddBrandsToExisting, exi
           </DialogHeader>
 
           <div className="space-y-3">
-            <div className="rounded-md border border-border bg-muted/40 p-3">
+            <div className="rounded-md border border-border bg-muted/40 p-3 max-h-64 overflow-y-auto pr-1 scrollbar-thin scrollbar-primary">
               <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
                 {multiDuplicates.map((item) => (
                   <li key={item}>{item}</li>
