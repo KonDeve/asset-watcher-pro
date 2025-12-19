@@ -22,6 +22,7 @@ import {
   ArrowLeft,
   GripVertical,
   Trash2,
+  Clipboard,
 } from "lucide-react";
 
 interface ProviderFolderViewProps {
@@ -92,6 +93,13 @@ export function ProviderFolderView({
     () => (openProvider ? providerGroups[openProvider] || [] : []),
     [openProvider, providerGroups]
   );
+
+  const providerCopyText = useMemo(() => {
+    if (!openProvider) return "";
+    return providerAssets
+      .map((asset) => asset.gameName.toLowerCase().replace(/\s+/g, ""))
+      .join("\n");
+  }, [openProvider, providerAssets]);
 
   const { toast } = useToast();
 
@@ -230,6 +238,27 @@ export function ProviderFolderView({
             <span className="text-sm text-muted-foreground">
               ({providerAssets.length} game{providerAssets.length !== 1 ? "s" : ""})
             </span>
+          </div>
+
+          <div className="flex items-center gap-2 ml-auto">
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={!providerAssets.length}
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(providerCopyText);
+                  toast({ title: "Copied", description: "Provider titles copied (lowercase, no spaces)." });
+                } catch (err) {
+                  console.error(err);
+                  toast({ title: "Copy failed", description: "Could not copy to clipboard.", variant: "destructive" });
+                }
+              }}
+              className="h-8"
+            >
+              <Clipboard className="w-4 h-4 mr-1" />
+              Copy titles
+            </Button>
           </div>
         </div>
 
