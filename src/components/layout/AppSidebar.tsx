@@ -11,6 +11,7 @@ import {
   Gamepad2,
   MessageSquare,
   Link,
+  FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -25,6 +26,7 @@ const navItems = [
   { title: "Missing Assets", url: "/missing-assets", icon: FileQuestion },
   { title: "Reports", url: "/reports", icon: BarChart3 },
   { title: "Game Assets Links", url: "/game-assets", icon: Link },
+  { title: "Title Converter", url: "/title-converter", icon: FileText },
   { title: "Team Chat", url: "/team-chat", icon: MessageSquare },
   { title: "Team", url: "/team", icon: Users },
   { title: "Settings", url: "/settings", icon: Settings },

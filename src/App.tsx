@@ -21,6 +21,7 @@ import NotFound from "./pages/NotFound";
 import ChatAssistant from "./pages/ChatAssistant";
 import GameAssetsLinks from "./pages/GameAssetsLinks";
 import TeamChat from "./pages/TeamChat";
+import TitleConverter from "./pages/TitleConverter";
 import { supabase } from "@/lib/supabase";
 import type { Session } from "@supabase/supabase-js";
 
@@ -131,6 +132,14 @@ const App = () => {
                   element={
                     <ProtectedRoute>
                       <TeamChat />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/title-converter"
+                  element={
+                    <ProtectedRoute>
+                      <TitleConverter />
                     </ProtectedRoute>
                   }
                 />
