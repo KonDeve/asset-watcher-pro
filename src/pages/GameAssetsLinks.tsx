@@ -16,24 +16,42 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useGameAssetLinks } from "@/hooks/useData";
 import { GameAssetLink } from "@/types/gameAsset";
-import { Loader2, Pencil, Plus, Search } from "lucide-react";
+import { Loader2, MinusCircle, Pencil, Plus, Search } from "lucide-react";
 
 export default function GameAssetsLinks() {
   const { links, loading, error, addLink, updateLink } = useGameAssetLinks();
   const { toast } = useToast();
-  const [form, setForm] = useState({
-    gameName: "",
-    assetUrl: "",
-    username: "",
-    password: "",
-  });
+  const [formRows, setFormRows] = useState([
+    { gameName: "", assetUrl: "", username: "", password: "" },
+  ]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingLink, setEditingLink] = useState<GameAssetLink | null>(null);
   const [search, setSearch] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const onChange = (key: keyof typeof form, value: string) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
+  const onChange = (index: number, key: keyof typeof formRows[number], value: string) => {
+    setFormRows((prev) => prev.map((row, i) => (i === index ? { ...row, [key]: value } : row)));
+  };
+
+  const addRow = () => {
+    setFormRows((prev) => [...prev, { gameName: "", assetUrl: "", username: "", password: "" }]);
+  };
+
+  const duplicateRow = (index: number) => {
+    setFormRows((prev) => {
+      const source = prev[index];
+      const clone = {
+        gameName: source.gameName,
+        assetUrl: "",
+        username: "",
+        password: "",
+      };
+      return [...prev.slice(0, index + 1), clone, ...prev.slice(index + 1)];
+    });
+  };
+
+  const removeRow = (index: number) => {
+    setFormRows((prev) => (prev.length === 1 ? prev : prev.filter((_, i) => i !== index)));
   };
 
   const filteredLinks = useMemo(() => {
@@ -48,55 +66,89 @@ export default function GameAssetsLinks() {
 
   const openAddModal = () => {
     setEditingLink(null);
-    setForm({ gameName: "", assetUrl: "", username: "", password: "" });
+    setFormRows([{ gameName: "", assetUrl: "", username: "", password: "" }]);
     setDialogOpen(true);
   };
 
   const openEditModal = (link: GameAssetLink) => {
     setEditingLink(link);
-    setForm({
-      gameName: link.gameName,
-      assetUrl: link.assetUrl,
-      username: link.username,
-      password: link.password,
-    });
+    setFormRows([
+      {
+        gameName: link.gameName,
+        assetUrl: link.assetUrl,
+        username: link.username,
+        password: link.password,
+      },
+    ]);
     setDialogOpen(true);
   };
 
   const handleSave = async () => {
-    if (!form.gameName.trim() || !form.assetUrl.trim()) {
-      toast({ title: "Missing info", description: "Game name and asset link are required.", variant: "destructive" });
+    const trimmedRows = formRows.map((row) => ({
+      gameName: row.gameName.trim(),
+      assetUrl: row.assetUrl.trim(),
+      username: row.username.trim(),
+      password: row.password.trim(),
+    }));
+
+    // Split whitespace-separated links so one row can create multiple links
+    const expandedPayloads = trimmedRows.flatMap((row) => {
+      const links = row.assetUrl.split(/\s+/).filter(Boolean);
+      return links.map((link) => ({
+        gameName: row.gameName,
+        assetUrl: link,
+        username: row.username,
+        password: row.password,
+      }));
+    });
+
+    const invalid = expandedPayloads.find((row) => !row.gameName || !row.assetUrl);
+    if (invalid || expandedPayloads.length === 0) {
+      toast({
+        title: "Missing info",
+        description: "Each row needs a game name and at least one asset link.",
+        variant: "destructive",
+      });
       return;
     }
 
     setSaving(true);
-    const payload = {
-      gameName: form.gameName.trim(),
-      assetUrl: form.assetUrl.trim(),
-      username: form.username.trim(),
-      password: form.password.trim(),
-    };
 
-    const saved = editingLink
-      ? await updateLink(editingLink.id, payload)
-      : await addLink(payload);
+    if (editingLink) {
+      // For edit, only take the first link input
+      const saved = await updateLink(editingLink.id, expandedPayloads[0]);
+      setSaving(false);
+      if (saved) {
+        toast({ title: "Link updated", description: saved.gameName });
+        setDialogOpen(false);
+        setFormRows([{ gameName: "", assetUrl: "", username: "", password: "" }]);
+        setEditingLink(null);
+      } else {
+        toast({ title: "Update failed", description: "Could not update link.", variant: "destructive" });
+      }
+      return;
+    }
+
+    let successCount = 0;
+    for (const payload of expandedPayloads) {
+      const saved = await addLink(payload);
+      if (saved) successCount += 1;
+    }
 
     setSaving(false);
 
-    if (saved) {
-      toast({
-        title: editingLink ? "Link updated" : "Link added",
-        description: saved.gameName,
-      });
+    if (successCount === expandedPayloads.length) {
+      toast({ title: "Links added", description: `${successCount} link(s) added.` });
       setDialogOpen(false);
-      setForm({ gameName: "", assetUrl: "", username: "", password: "" });
-      setEditingLink(null);
-    } else {
+      setFormRows([{ gameName: "", assetUrl: "", username: "", password: "" }]);
+    } else if (successCount > 0) {
       toast({
-        title: editingLink ? "Update failed" : "Add failed",
-        description: editingLink ? "Could not update link." : "Could not create link.",
+        title: "Partial success",
+        description: `${successCount} of ${expandedPayloads.length} links added.`,
         variant: "destructive",
       });
+    } else {
+      toast({ title: "Add failed", description: "No links were created.", variant: "destructive" });
     }
   };
 
@@ -187,7 +239,7 @@ export default function GameAssetsLinks() {
                         href={row.assetUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-primary hover:underline break-all"
+                        className="text-primary hover:text-primary/80 break-all"
                       >
                         {row.assetUrl}
                       </a>
@@ -207,52 +259,94 @@ export default function GameAssetsLinks() {
         </Card>
 
         <Dialog open={dialogOpen} onOpenChange={(open) => !saving && setDialogOpen(open)}>
-          <DialogContent>
+          <DialogContent className="max-w-5xl">
             <DialogHeader>
               <DialogTitle>{editingLink ? "Edit Link" : "Add Link"}</DialogTitle>
               <DialogDescription>
                 {editingLink ? "Update the selected game asset link." : "Add a new game asset link."}
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="gameName">Game name</Label>
-                <Input
-                  id="gameName"
-                  value={form.gameName}
-                  onChange={(e) => onChange("gameName", e.target.value)}
-                  placeholder="Game name"
-                />
+            <div className="space-y-1 max-h-[70vh] overflow-y-auto pr-1 scrollbar-soft">
+              <div className="hidden md:grid grid-cols-[1.1fr,1.6fr,1fr,1fr,auto] gap-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <span>Game name</span>
+                <span>Asset link</span>
+                <span>Username</span>
+                <span>Password</span>
+                <span className="text-right">Actions</span>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="assetUrl">Asset link</Label>
-                <Input
-                  id="assetUrl"
-                  value={form.assetUrl}
-                  onChange={(e) => onChange("assetUrl", e.target.value)}
-                  placeholder="https://..."
-                />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="username">Username (optional)</Label>
-                  <Input
-                    id="username"
-                    value={form.username}
-                    onChange={(e) => onChange("username", e.target.value)}
-                    placeholder="Username"
-                  />
+
+              {formRows.map((row, index) => (
+                <div
+                  key={index}
+                  className="grid grid-cols-1 md:grid-cols-[1.1fr,1.6fr,1fr,1fr,auto] gap-1 md:gap-1.5 rounded-md md:rounded-none p-1 md:p-0 md:py-1"
+                >
+                  <div className="space-y-2">
+                    <Label className="md:hidden" htmlFor={`gameName-${index}`}>
+                      Game name
+                    </Label>
+                    <Input
+                      id={`gameName-${index}`}
+                      value={row.gameName}
+                      onChange={(e) => onChange(index, "gameName", e.target.value)}
+                      placeholder="Game name"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="md:hidden" htmlFor={`assetUrl-${index}`}>
+                      Asset link
+                    </Label>
+                    <Input
+                      id={`assetUrl-${index}`}
+                      value={row.assetUrl}
+                      onChange={(e) => onChange(index, "assetUrl", e.target.value)}
+                      placeholder="https://... (space to add more)"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="md:hidden" htmlFor={`username-${index}`}>
+                      Username (optional)
+                    </Label>
+                    <Input
+                      id={`username-${index}`}
+                      value={row.username}
+                      onChange={(e) => onChange(index, "username", e.target.value)}
+                      placeholder="Username"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="md:hidden" htmlFor={`password-${index}`}>
+                      Password (optional)
+                    </Label>
+                    <Input
+                      id={`password-${index}`}
+                      value={row.password}
+                      onChange={(e) => onChange(index, "password", e.target.value)}
+                      placeholder="Password"
+                    />
+                  </div>
+                  {!editingLink ? (
+                    <div className="flex items-center justify-end md:justify-center md:pr-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeRow(index)}
+                        disabled={formRows.length === 1}
+                        aria-label="Remove row"
+                      >
+                        <MinusCircle className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="md:pr-2" />
+                  )}
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password (optional)</Label>
-                  <Input
-                    id="password"
-                    value={form.password}
-                    onChange={(e) => onChange("password", e.target.value)}
-                    placeholder="Password"
-                  />
-                </div>
-              </div>
+              ))}
+
+              {!editingLink && (
+                <Button variant="outline" onClick={addRow} className="w-full">
+                  <Plus className="w-4 h-4 mr-2" /> Add another row
+                </Button>
+              )}
             </div>
             <DialogFooter className="mt-2">
               <Button variant="secondary" onClick={() => setDialogOpen(false)} disabled={saving}>
