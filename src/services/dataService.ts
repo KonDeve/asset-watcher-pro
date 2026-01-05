@@ -481,6 +481,30 @@ class DataService {
     return true;
   }
 
+  async updateAssetName(assetId: string, gameName: string): Promise<boolean> {
+    if (!this.useSupabase || !supabase) {
+      const asset = mockAssets.find((a) => a.id === assetId);
+      if (asset) {
+        asset.gameName = gameName;
+        asset.updatedAt = new Date().toISOString();
+        return true;
+      }
+      return false;
+    }
+
+    const { error } = await supabase
+      .from("assets")
+      .update({ game_name: gameName })
+      .eq("id", assetId);
+
+    if (error) {
+      console.error("Error updating asset name:", error);
+      return false;
+    }
+
+    return true;
+  }
+
   async updateAssetDesigner(assetId: string, designerId: string | null): Promise<boolean> {
     if (!this.useSupabase || !supabase) {
       const asset = mockAssets.find((a) => a.id === assetId);
@@ -537,6 +561,30 @@ class DataService {
 
     if (error) {
       console.error("Error updating asset provider:", error);
+      return false;
+    }
+
+    return true;
+  }
+
+  async updateAssetNotes(assetId: string, notes: string): Promise<boolean> {
+    if (!this.useSupabase || !supabase) {
+      const asset = mockAssets.find((a) => a.id === assetId);
+      if (asset) {
+        asset.notes = notes;
+        asset.updatedAt = new Date().toISOString();
+        return true;
+      }
+      return false;
+    }
+
+    const { error } = await supabase
+      .from("assets")
+      .update({ notes })
+      .eq("id", assetId);
+
+    if (error) {
+      console.error("Error updating asset notes:", error);
       return false;
     }
 

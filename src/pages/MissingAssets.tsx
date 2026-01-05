@@ -32,6 +32,7 @@ import {
   ChevronRight,
   Trash2,
   ListChecks,
+  Copy,
 } from "lucide-react";
 import { AssetDetailsPanel } from "@/components/AssetDetailsPanel";
 import { AddAssetModal } from "@/components/AddAssetModal";
@@ -73,8 +74,10 @@ export default function MissingAssets() {
     isUsingSupabase,
     addAsset,
     updateStatus,
+    updateGameName,
     updateDesigner,
     updateProvider,
+    updateNotes,
     updateBrandReflection,
     addBrandsToAsset,
     updateAssetBrands,
@@ -486,6 +489,14 @@ export default function MissingAssets() {
     return success;
   };
 
+  const handleGameNameChange = async (assetId: string, gameName: string) => {
+    const success = await updateGameName(assetId, gameName);
+    if (success && selectedAsset?.id === assetId) {
+      setSelectedAsset((prev) => (prev ? { ...prev, gameName } : null));
+    }
+    return success;
+  };
+
   const handleBrandSelectionChange = async (assetId: string, brandIds: string[]) => {
     const asset = assets.find((a) => a.id === assetId);
     const brands: Brand[] = brandIds
@@ -502,6 +513,14 @@ export default function MissingAssets() {
     const success = await updateAssetBrands(assetId, brands);
     if (success && selectedAsset?.id === assetId) {
       setSelectedAsset((prev) => (prev ? { ...prev, brands } : null));
+    }
+    return success;
+  };
+
+  const handleNotesChange = async (assetId: string, notes: string) => {
+    const success = await updateNotes(assetId, notes);
+    if (success && selectedAsset?.id === assetId) {
+      setSelectedAsset((prev) => (prev ? { ...prev, notes } : null));
     }
     return success;
   };
@@ -1100,6 +1119,9 @@ export default function MissingAssets() {
                         Provider
                       </th>
                       <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-4 py-3">
+                        Notes
+                      </th>
+                      <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-4 py-3">
                         Brands
                       </th>
                       <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-4 py-3">
@@ -1148,11 +1170,33 @@ export default function MissingAssets() {
                             <p className="font-medium text-foreground text-sm">
                               {asset.gameName}
                             </p>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigator.clipboard.writeText(asset.gameName).then(() => {
+                                  toast({ title: "Copied", description: "Game name copied." });
+                                }).catch((err) => {
+                                  console.error(err);
+                                  toast({ title: "Copy failed", description: "Could not copy name.", variant: "destructive" });
+                                });
+                              }}
+                              aria-label="Copy game name"
+                            >
+                              <Copy className="w-4 h-4" />
+                            </Button>
                           </div>
                         </td>
                         <td className="px-4 py-3">
                           <span className="text-sm text-muted-foreground">
                             {asset.provider}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 max-w-xs">
+                          <span className="text-sm text-muted-foreground line-clamp-2">
+                            {asset.notes || "—"}
                           </span>
                         </td>
                         <td className="px-4 py-3">
@@ -1365,6 +1409,8 @@ export default function MissingAssets() {
           asset={selectedAsset}
           onClose={() => setSelectedAsset(null)}
           onStatusChange={handleStatusChange}
+          onGameNameChange={handleGameNameChange}
+          onNotesChange={handleNotesChange}
           onDesignerChange={handleDesignerChange}
           onBrandReflectionToggle={handleBrandReflectionToggle}
           onProviderChange={handleProviderChange}

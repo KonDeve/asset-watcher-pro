@@ -23,6 +23,7 @@ import {
   GripVertical,
   Trash2,
   Clipboard,
+  Copy,
 } from "lucide-react";
 
 interface ProviderFolderViewProps {
@@ -274,6 +275,9 @@ export function ProviderFolderView({
                   Brands
                 </th>
                 <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-4 py-3">
+                  Notes
+                </th>
+                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-4 py-3">
                   Status
                 </th>
                 <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-4 py-3">
@@ -309,6 +313,24 @@ export function ProviderFolderView({
                       <p className="font-medium text-foreground text-sm">
                         {asset.gameName}
                       </p>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          try {
+                            await navigator.clipboard.writeText(asset.gameName);
+                            toast({ title: "Copied", description: "Game name copied." });
+                          } catch (err) {
+                            console.error(err);
+                            toast({ title: "Copy failed", description: "Could not copy name.", variant: "destructive" });
+                          }
+                        }}
+                        aria-label="Copy game name"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </Button>
                     </div>
                   </td>
                   <td className="px-4 py-3">
@@ -335,6 +357,11 @@ export function ProviderFolderView({
                         </span>
                       )}
                     </div>
+                  </td>
+                  <td className="px-4 py-3 max-w-xs">
+                    <span className="text-sm text-muted-foreground line-clamp-2">
+                      {asset.notes || "—"}
+                    </span>
                   </td>
                   <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center gap-1 group">

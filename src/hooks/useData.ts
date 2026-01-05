@@ -51,6 +51,20 @@ export function useAssets() {
     return success;
   }, []);
 
+  const updateGameName = useCallback(async (assetId: string, gameName: string) => {
+    const success = await dataService.updateAssetName(assetId, gameName);
+    if (success) {
+      setAssets((prev) =>
+        prev.map((a) =>
+          a.id === assetId
+            ? { ...a, gameName, updatedAt: new Date().toISOString() }
+            : a
+        )
+      );
+    }
+    return success;
+  }, []);
+
   const updateDesigner = useCallback(async (assetId: string, designer: Designer | null) => {
     const success = await dataService.updateAssetDesigner(assetId, designer?.id || null);
     if (success) {
@@ -72,6 +86,20 @@ export function useAssets() {
         prev.map((a) =>
           a.id === assetId
             ? { ...a, provider, updatedAt: new Date().toISOString() }
+            : a
+        )
+      );
+    }
+    return success;
+  }, []);
+
+  const updateNotes = useCallback(async (assetId: string, notes: string) => {
+    const success = await dataService.updateAssetNotes(assetId, notes);
+    if (success) {
+      setAssets((prev) =>
+        prev.map((a) =>
+          a.id === assetId
+            ? { ...a, notes, updatedAt: new Date().toISOString() }
             : a
         )
       );
@@ -161,8 +189,10 @@ export function useAssets() {
     refetch: fetchAssets,
     addAsset,
     updateStatus,
+    updateGameName,
     updateDesigner,
     updateProvider,
+    updateNotes,
     updateBrandReflection,
     addBrandsToAsset,
     updateAssetBrands,

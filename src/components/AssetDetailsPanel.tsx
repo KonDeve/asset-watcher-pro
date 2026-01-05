@@ -4,6 +4,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { DesignerAvatar } from "@/components/DesignerAvatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
@@ -19,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Copy, Share2, Calendar, Clock, FileText, CheckCircle2, XCircle, User } from "lucide-react";
+import { Calendar, Clock, FileText, CheckCircle2, XCircle, User, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useDesigners } from "@/hooks/useData";
 
@@ -27,6 +28,8 @@ interface AssetDetailsPanelProps {
   asset: MissingAsset;
   onClose: () => void;
   onStatusChange: (assetId: string, status: AssetStatus) => void;
+  onGameNameChange: (assetId: string, gameName: string) => Promise<boolean> | boolean;
+  onNotesChange: (assetId: string, notes: string) => Promise<boolean> | boolean;
   onDesignerChange: (assetId: string, designerId: string) => void;
   onBrandReflectionToggle?: (assetId: string, brandId: string, reflected: boolean) => void;
   onProviderChange: (assetId: string, provider: string) => Promise<boolean> | boolean;
@@ -39,6 +42,8 @@ export function AssetDetailsPanel({
   asset,
   onClose,
   onStatusChange,
+  onGameNameChange,
+  onNotesChange,
   onDesignerChange,
   onBrandReflectionToggle,
   onProviderChange,
@@ -52,23 +57,43 @@ export function AssetDetailsPanel({
   const [selectedBrandIds, setSelectedBrandIds] = useState<string[]>(asset.brands.map((b) => b.id));
   const [providerSaving, setProviderSaving] = useState(false);
   const [brandsSaving, setBrandsSaving] = useState(false);
+  const [gameNameSaving, setGameNameSaving] = useState(false);
+  const [gameNameInput, setGameNameInput] = useState(asset.gameName);
+  const [notesSaving, setNotesSaving] = useState(false);
+  const [notesInput, setNotesInput] = useState(asset.notes || "");
 
   useEffect(() => {
     setSelectedBrandIds(asset.brands.map((b) => b.id));
-  }, [asset.id, asset.brands]);
+    setGameNameInput(asset.gameName);
+    setNotesInput(asset.notes || "");
+  }, [asset.id, asset.brands, asset.gameName, asset.notes]);
 
-  const handleCopyDoc = () => {
-    const text = `Game Name: ${asset.gameName}
-      Provider: ${asset.provider}
-      Brand: ${asset.brands.map((b) => b.name).join(", ")}
-      Status: ${statusConfig[asset.status].label}
-      Notes: ${asset.notes || "N/A"}`;
+  const handleGameNameSave = async () => {
+    const trimmed = gameNameInput.trim();
+    if (trimmed.length === 0 || trimmed === asset.gameName) return;
+    setGameNameSaving(true);
+    const success = await onGameNameChange(asset.id, trimmed);
+    if (success) {
+      toast({ title: "Game name updated", description: trimmed });
+    } else {
+      setGameNameInput(asset.gameName);
+      toast({ title: "Update failed", description: "Could not update game name.", variant: "destructive" });
+    }
+    setGameNameSaving(false);
+  };
 
-    navigator.clipboard.writeText(text);
-    toast({
-      title: "Copied to clipboard",
-      description: "Asset details have been copied.",
-    });
+  const handleNotesSave = async () => {
+    const trimmed = notesInput.trim();
+    if (trimmed === asset.notes) return;
+    setNotesSaving(true);
+    const success = await onNotesChange(asset.id, trimmed);
+    if (success) {
+      toast({ title: "Notes updated" });
+    } else {
+      setNotesInput(asset.notes || "");
+      toast({ title: "Update failed", description: "Could not update notes.", variant: "destructive" });
+    }
+    setNotesSaving(false);
   };
 
   const handleProviderSelect = async (providerName: string) => {
@@ -109,12 +134,27 @@ export function AssetDetailsPanel({
         {/* Content */}
         <div className="flex-1 overflow-auto space-y-5 pr-2 scrollbar-thin">
           {/* Title */}
-          <div className="bg-muted/50 rounded-lg p-3">
-            <h3 className="text-lg font-semibold text-foreground mb-1">
-              {asset.gameName}
-            </h3>
-            <p className="text-sm text-muted-foreground">{asset.provider}</p>
-          </div>
+            <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider block">
+                Game Name
+              </label>
+              <div className="flex gap-2">
+                <Input
+                  value={gameNameInput}
+                  onChange={(e) => setGameNameInput(e.target.value)}
+                  placeholder="Edit game name"
+                  className="bg-card"
+                />
+                <Button
+                  onClick={handleGameNameSave}
+                  disabled={gameNameSaving || gameNameInput.trim().length === 0 || gameNameInput.trim() === asset.gameName}
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  Save
+                </Button>
+              </div>
+              <p className="text-sm text-muted-foreground">{asset.provider}</p>
+            </div>
 
           {/* Provider */}
           <div className="space-y-2">
@@ -298,25 +338,25 @@ export function AssetDetailsPanel({
               Notes
             </label>
             <Textarea
-              value={asset.notes}
+              value={notesInput}
+              onChange={(e) => setNotesInput(e.target.value)}
               placeholder="Add notes..."
               className="min-h-24 text-sm resize-none"
-              readOnly
             />
+            <div className="mt-2 flex justify-end">
+              <Button
+                size="sm"
+                onClick={handleNotesSave}
+                disabled={notesSaving || notesInput.trim() === (asset.notes || "")}
+              >
+                <Save className="w-4 h-4 mr-2" />
+                Save Notes
+              </Button>
+            </div>
           </div>
         </div>
 
-        {/* Footer Actions */}
-        <div className="flex gap-2 pt-4 border-t border-border shrink-0">
-          <Button variant="outline" size="sm" className="flex-1" onClick={handleCopyDoc}>
-            <Copy className="w-4 h-4 mr-2" />
-            Copy Doc
-          </Button>
-          <Button variant="outline" size="sm" className="flex-1">
-            <Share2 className="w-4 h-4 mr-2" />
-            Share
-          </Button>
-        </div>
+        {/* Footer spacer removed as copy/share not needed */}
       </DialogContent>
     </Dialog>
   );
