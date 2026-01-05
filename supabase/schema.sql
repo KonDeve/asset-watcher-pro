@@ -76,6 +76,19 @@ CREATE INDEX IF NOT EXISTS idx_asset_brands_asset ON asset_brands(asset_id);
 CREATE INDEX IF NOT EXISTS idx_asset_brands_brand ON asset_brands(brand_id);
 
 -- =============================================
+-- GAME ASSET LINKS TABLE
+-- =============================================
+CREATE TABLE IF NOT EXISTS game_asset_links (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  game_name VARCHAR(255) NOT NULL,
+  asset_url TEXT NOT NULL,
+  username VARCHAR(255),
+  password VARCHAR(255),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- =============================================
 -- UPDATED_AT TRIGGER FUNCTION
 -- =============================================
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -107,6 +120,7 @@ ALTER TABLE brands ENABLE ROW LEVEL SECURITY;
 ALTER TABLE providers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE assets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE asset_brands ENABLE ROW LEVEL SECURITY;
+ALTER TABLE game_asset_links ENABLE ROW LEVEL SECURITY;
 
 -- Allow all operations for authenticated users (adjust as needed)
 CREATE POLICY "Allow all for authenticated users" ON designers FOR ALL USING (true);
@@ -114,6 +128,7 @@ CREATE POLICY "Allow all for authenticated users" ON brands FOR ALL USING (true)
 CREATE POLICY "Allow all for authenticated users" ON providers FOR ALL USING (true);
 CREATE POLICY "Allow all for authenticated users" ON assets FOR ALL USING (true);
 CREATE POLICY "Allow all for authenticated users" ON asset_brands FOR ALL USING (true);
+CREATE POLICY "Allow all for authenticated users" ON game_asset_links FOR ALL USING (true);
 
 -- =============================================
 -- SEED DATA (Optional - matches mockData)

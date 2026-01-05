@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { dataService } from "@/services/dataService";
 import { MissingAsset, Designer, Brand, AssetStatus } from "@/types/asset";
+import { GameAssetLink } from "@/types/gameAsset";
 
 // =============================================
 // useAssets Hook
@@ -197,6 +198,62 @@ export function useAssets() {
     addBrandsToAsset,
     updateAssetBrands,
     deleteAsset,
+    isUsingSupabase: dataService.isUsingSupabase(),
+  };
+}
+
+// =============================================
+// useGameAssetLinks Hook
+// =============================================
+export function useGameAssetLinks() {
+  const [links, setLinks] = useState<GameAssetLink[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchLinks = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await dataService.getGameAssetLinks();
+      setLinks(data);
+    } catch (err) {
+      console.error(err);
+      setError("Failed to fetch game asset links");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchLinks();
+  }, [fetchLinks]);
+
+  const addLink = useCallback(async (link: Omit<GameAssetLink, "id" | "createdAt" | "updatedAt">) => {
+    const created = await dataService.createGameAssetLink(link);
+    if (created) {
+      setLinks((prev) => [created, ...prev]);
+    }
+    return created;
+  }, []);
+
+  const updateLink = useCallback(
+    async (id: string, link: Omit<GameAssetLink, "id" | "createdAt" | "updatedAt">) => {
+      const updated = await dataService.updateGameAssetLink(id, link);
+      if (updated) {
+        setLinks((prev) => prev.map((l) => (l.id === id ? updated : l)));
+      }
+      return updated;
+    },
+    []
+  );
+
+  return {
+    links,
+    loading,
+    error,
+    refetch: fetchLinks,
+    addLink,
+    updateLink,
     isUsingSupabase: dataService.isUsingSupabase(),
   };
 }

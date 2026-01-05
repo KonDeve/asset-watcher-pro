@@ -10,6 +10,7 @@ import {
   ChevronRight,
   Gamepad2,
   MessageSquare,
+  Link,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -23,6 +24,7 @@ const navItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Missing Assets", url: "/missing-assets", icon: FileQuestion },
   { title: "Reports", url: "/reports", icon: BarChart3 },
+  { title: "Game Assets Links", url: "/game-assets", icon: Link },
   { title: "Team", url: "/team", icon: Users },
   { title: "Settings", url: "/settings", icon: Settings },
 ];

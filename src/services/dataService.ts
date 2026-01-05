@@ -1,11 +1,42 @@
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { MissingAsset, Designer, Brand, AssetStatus } from "@/types/asset";
+import { GameAssetLink } from "@/types/gameAsset";
 import {
   mockAssets,
   designers as mockDesigners,
   brandOptions as mockBrands,
   providerOptions as mockProviders,
 } from "@/data/mockData";
+
+const mockGameAssetLinks: GameAssetLink[] = [
+  {
+    id: "gal-1",
+    gameName: "Blue Thunder",
+    assetUrl: "https://assets.example.com/blue-thunder",
+    username: "bluethunder_user",
+    password: "Blue@123",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "gal-2",
+    gameName: "Boom Ball",
+    assetUrl: "https://assets.example.com/boom-ball",
+    username: "boomball_user",
+    password: "BoomBall!",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "gal-3",
+    gameName: "Rocket Star",
+    assetUrl: "https://assets.example.com/rocket-star",
+    username: "rocketstar_user",
+    password: "Rocket*2024",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+];
 
 // =============================================
 // DATA SERVICE - Handles Supabase or Mock Data
@@ -704,6 +735,120 @@ class DataService {
     }
 
     return true;
+  }
+
+  // =============================================
+  // GAME ASSET LINKS
+  // =============================================
+
+  async getGameAssetLinks(): Promise<GameAssetLink[]> {
+    if (!this.useSupabase || !supabase) {
+      return [...mockGameAssetLinks];
+    }
+
+    const { data, error } = await supabase
+      .from("game_asset_links")
+      .select("id, game_name, asset_url, username, password, created_at, updated_at")
+      .order("game_name");
+
+    if (error) {
+      console.error("Error fetching game asset links:", error);
+      return [];
+    }
+
+    return (data || []).map((row) => ({
+      id: row.id,
+      gameName: row.game_name,
+      assetUrl: row.asset_url,
+      username: row.username || "",
+      password: row.password || "",
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }));
+  }
+
+  async createGameAssetLink(link: Omit<GameAssetLink, "id" | "createdAt" | "updatedAt">): Promise<GameAssetLink | null> {
+    if (!this.useSupabase || !supabase) {
+      const newLink: GameAssetLink = {
+        id: `gal-${Date.now()}`,
+        ...link,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      mockGameAssetLinks.push(newLink);
+      return newLink;
+    }
+
+    const { data, error } = await supabase
+      .from("game_asset_links")
+      .insert({
+        game_name: link.gameName,
+        asset_url: link.assetUrl,
+        username: link.username || null,
+        password: link.password || null,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error creating game asset link:", error);
+      return null;
+    }
+
+    return {
+      id: data.id,
+      gameName: data.game_name,
+      assetUrl: data.asset_url,
+      username: data.username || "",
+      password: data.password || "",
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
+    };
+  }
+
+  async updateGameAssetLink(
+    id: string,
+    link: Omit<GameAssetLink, "id" | "createdAt" | "updatedAt">
+  ): Promise<GameAssetLink | null> {
+    if (!this.useSupabase || !supabase) {
+      const index = mockGameAssetLinks.findIndex((l) => l.id === id);
+      if (index === -1) return null;
+
+      mockGameAssetLinks[index] = {
+        ...mockGameAssetLinks[index],
+        ...link,
+        updatedAt: new Date().toISOString(),
+      };
+
+      return mockGameAssetLinks[index];
+    }
+
+    const { data, error } = await supabase
+      .from("game_asset_links")
+      .update({
+        game_name: link.gameName,
+        asset_url: link.assetUrl,
+        username: link.username ? link.username : null,
+        password: link.password ? link.password : null,
+      })
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error updating game asset link:", error);
+      return null;
+    }
+
+    return {
+      id: data.id,
+      gameName: data.game_name,
+      assetUrl: data.asset_url,
+      username: data.username || "",
+      password: data.password || "",
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
+    };
   }
 
   async deleteAsset(assetId: string): Promise<boolean> {

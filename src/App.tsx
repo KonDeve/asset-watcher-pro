@@ -19,6 +19,7 @@ import ResetPassword from "./pages/ResetPassword";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 import ChatAssistant from "./pages/ChatAssistant";
+import GameAssetsLinks from "./pages/GameAssetsLinks";
 import { supabase } from "@/lib/supabase";
 import type { Session } from "@supabase/supabase-js";
 
@@ -113,6 +114,14 @@ const App = () => {
                   element={
                     <ProtectedRoute>
                       <Team />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/game-assets"
+                  element={
+                    <ProtectedRoute>
+                      <GameAssetsLinks />
                     </ProtectedRoute>
                   }
                 />
