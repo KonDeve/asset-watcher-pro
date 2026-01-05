@@ -64,6 +64,27 @@ export default function GameAssetsLinks() {
     );
   }, [links, search]);
 
+  const groupedLinks = useMemo(() => {
+    const map = new Map<string, { gameName: string; assetUrls: string[]; username: string; password: string; ids: string[] }>();
+    filteredLinks.forEach((link) => {
+      const key = link.gameName;
+      const existing = map.get(key);
+      if (existing) {
+        existing.assetUrls.push(link.assetUrl);
+        existing.ids.push(link.id);
+      } else {
+        map.set(key, {
+          gameName: link.gameName,
+          assetUrls: [link.assetUrl],
+          username: link.username,
+          password: link.password,
+          ids: [link.id],
+        });
+      }
+    });
+    return Array.from(map.values());
+  }, [filteredLinks]);
+
   const openAddModal = () => {
     setEditingLink(null);
     setFormRows([{ gameName: "", assetUrl: "", username: "", password: "" }]);
@@ -91,22 +112,36 @@ export default function GameAssetsLinks() {
       password: row.password.trim(),
     }));
 
-    // Split whitespace-separated links so one row can create multiple links
+    const baseGameName = trimmedRows.find((r) => r.gameName)?.gameName || "";
+    const nameMismatch = trimmedRows.some((r) => r.gameName && r.gameName !== baseGameName);
+
+    if (!baseGameName || nameMismatch) {
+      toast({
+        title: "Game name required",
+        description: nameMismatch
+          ? "Use the same game name for all links."
+          : "Provide a game name to save links.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Split whitespace-separated links so one row can create multiple links, all under the same game name
     const expandedPayloads = trimmedRows.flatMap((row) => {
       const links = row.assetUrl.split(/\s+/).filter(Boolean);
       return links.map((link) => ({
-        gameName: row.gameName,
+        gameName: baseGameName,
         assetUrl: link,
         username: row.username,
         password: row.password,
       }));
     });
 
-    const invalid = expandedPayloads.find((row) => !row.gameName || !row.assetUrl);
+    const invalid = expandedPayloads.find((row) => !row.assetUrl);
     if (invalid || expandedPayloads.length === 0) {
       toast({
         title: "Missing info",
-        description: "Each row needs a game name and at least one asset link.",
+        description: "Each row needs at least one asset link.",
         variant: "destructive",
       });
       return;
@@ -221,33 +256,37 @@ export default function GameAssetsLinks() {
                     </td>
                   </tr>
                 )}
-                {!loading && !error && filteredLinks.length === 0 && (
+                {!loading && !error && groupedLinks.length === 0 && (
                   <tr>
                     <td className="px-4 py-6 text-sm text-muted-foreground" colSpan={5}>
                       No links yet.
                     </td>
                   </tr>
                 )}
-                {!loading && !error && filteredLinks.map((row, idx) => (
+                {!loading && !error && groupedLinks.map((row, idx) => (
                   <tr
-                    key={row.id}
+                    key={row.gameName}
                     className={`border-b border-border/60 ${idx % 2 === 0 ? "bg-card" : "bg-muted/10"}`}
                   >
                     <td className="px-4 py-3 text-sm text-foreground font-medium">{row.gameName}</td>
-                    <td className="px-4 py-3 text-sm">
-                      <a
-                        href={row.assetUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-primary hover:text-primary/80 break-all"
-                      >
-                        {row.assetUrl}
-                      </a>
+                    <td className="px-4 py-3 text-sm space-y-1">
+                      {row.assetUrls.map((url, i) => (
+                        <div key={`${row.gameName}-${i}`}>
+                          <a
+                            href={url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-primary hover:text-primary/80 break-all"
+                          >
+                            {url}
+                          </a>
+                        </div>
+                      ))}
                     </td>
                     <td className="px-4 py-3 text-sm text-foreground">{row.username}</td>
                     <td className="px-4 py-3 text-sm text-foreground">{row.password}</td>
                     <td className="px-4 py-3 text-sm text-right">
-                      <Button variant="ghost" size="sm" onClick={() => openEditModal(row)}>
+                      <Button variant="ghost" size="sm" onClick={() => openEditModal(filteredLinks.find((l) => l.id === row.ids[0]) || links.find((l) => l.gameName === row.gameName)!)}>
                         <Pencil className="w-4 h-4 mr-2" /> Edit
                       </Button>
                     </td>
