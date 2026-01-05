@@ -95,7 +95,7 @@ export function ProviderFolderView({
   const providerCopyText = useMemo(() => {
     if (!openProvider) return "";
     return providerAssets
-      .map((asset) => asset.gameName.toLowerCase().replace(/\s+/g, ""))
+      .map((asset) => asset.gameName.toLowerCase().replace(/[^a-z0-9]/g, ""))
       .join("\n");
   }, [openProvider, providerAssets]);
 
