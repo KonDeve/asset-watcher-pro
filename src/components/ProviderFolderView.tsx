@@ -9,13 +9,10 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@/components/ui/select";
 import {
   Folder,
   FolderOpen,
-  ChevronRight,
-  ChevronDown,
   Gamepad2,
   CheckCircle2,
   XCircle,
@@ -26,14 +23,14 @@ import {
   Copy,
 } from "lucide-react";
 
-interface ProviderFolderViewProps {
+type ProviderFolderViewProps = {
   assets: MissingAsset[];
   designers: Designer[];
   onStatusChange: (assetId: string, status: AssetStatus) => void;
   onDesignerChange: (assetId: string, designerId: string) => void;
   onAssetClick: (asset: MissingAsset) => void;
   onDeleteRequest: (asset: MissingAsset) => void;
-}
+};
 
 export function ProviderFolderView({
   assets,
@@ -100,6 +97,11 @@ export function ProviderFolderView({
     return providerAssets
       .map((asset) => asset.gameName.toLowerCase().replace(/\s+/g, ""))
       .join("\n");
+  }, [openProvider, providerAssets]);
+
+  const providerCopyTextNormal = useMemo(() => {
+    if (!openProvider) return "";
+    return providerAssets.map((asset) => asset.gameName).join("\n");
   }, [openProvider, providerAssets]);
 
   const { toast } = useToast();
@@ -223,44 +225,65 @@ export function ProviderFolderView({
     return (
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex items-center gap-3 p-4 border-b border-border bg-muted/30">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setOpenProvider(null)}
-            className="h-8"
-          >
-            <ArrowLeft className="w-4 h-4 mr-1" />
-            Back
-          </Button>
-          <div className="flex items-center gap-2">
-            <FolderOpen className="w-5 h-5 text-primary" />
-            <h2 className="font-semibold text-foreground">{openProvider}</h2>
-            <span className="text-sm text-muted-foreground">
-              ({providerAssets.length} game{providerAssets.length !== 1 ? "s" : ""})
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2 ml-auto">
+        <div className="flex flex-col gap-3 p-4 border-b border-border bg-muted/30">
+          <div className="flex items-center gap-3">
             <Button
-              variant="secondary"
+              variant="ghost"
               size="sm"
-              disabled={!providerAssets.length}
-              onClick={async () => {
-                try {
-                  await navigator.clipboard.writeText(providerCopyText);
-                  toast({ title: "Copied", description: "Provider titles copied (lowercase, no spaces)." });
-                } catch (err) {
-                  console.error(err);
-                  toast({ title: "Copy failed", description: "Could not copy to clipboard.", variant: "destructive" });
-                }
-              }}
+              onClick={() => setOpenProvider(null)}
               className="h-8"
             >
-              <Clipboard className="w-4 h-4 mr-1" />
-              Copy titles
+              <ArrowLeft className="w-4 h-4 mr-1" />
+              Back
             </Button>
+            <div className="flex items-center gap-2">
+              <FolderOpen className="w-5 h-5 text-primary" />
+              <h2 className="font-semibold text-foreground">{openProvider}</h2>
+              <span className="text-sm text-muted-foreground">
+                ({providerAssets.length} game{providerAssets.length !== 1 ? "s" : ""})
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2 ml-auto">
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={!providerAssets.length}
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(providerCopyText);
+                    toast({ title: "Copied", description: "Provider titles copied (lowercase, no spaces)." });
+                  } catch (err) {
+                    console.error(err);
+                    toast({ title: "Copy failed", description: "Could not copy to clipboard.", variant: "destructive" });
+                  }
+                }}
+                className="h-8"
+              >
+                <Clipboard className="w-4 h-4 mr-1" />
+                Copy titles
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!providerAssets.length}
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(providerCopyTextNormal);
+                    toast({ title: "Copied", description: "Provider titles copied (original format)." });
+                  } catch (err) {
+                    console.error(err);
+                    toast({ title: "Copy failed", description: "Could not copy to clipboard.", variant: "destructive" });
+                  }
+                }}
+                className="h-8"
+              >
+                <Clipboard className="w-4 h-4 mr-1" />
+                Copy normal titles
+              </Button>
+            </div>
           </div>
+
         </div>
 
         {/* Table */}
@@ -310,9 +333,14 @@ export function ProviderFolderView({
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <Gamepad2 className="w-4 h-4 text-muted-foreground" />
-                      <p className="font-medium text-foreground text-sm">
-                        {asset.gameName}
-                      </p>
+                      <div className="flex flex-col leading-tight">
+                        <p className="font-medium text-foreground text-sm">
+                          {asset.gameName}
+                        </p>
+                        <p className="text-xs text-muted-foreground lowercase">
+                          {asset.gameName.toLowerCase().replace(/\s+/g, "")}
+                        </p>
+                      </div>
                       <Button
                         variant="ghost"
                         size="icon"

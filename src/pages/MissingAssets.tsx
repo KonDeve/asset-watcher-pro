@@ -250,6 +250,23 @@ export default function MissingAssets() {
   );
 
   const normalizeName = (name: string) => name.toLowerCase().trim().replace(/\s+/g, " ");
+  const normalizeCompact = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+  const matchesSearchTerm = (asset: MissingAsset, term: string) => {
+    const compactTerm = normalizeCompact(term);
+    if (!compactTerm) return false;
+
+    const compactName = normalizeCompact(asset.gameName);
+    const compactProvider = normalizeCompact(asset.provider);
+
+    if (compactName.includes(compactTerm)) return true;
+    if (compactProvider.includes(compactTerm)) return true;
+
+    return (
+      normalizeName(asset.gameName).includes(term) ||
+      asset.provider.toLowerCase().includes(term)
+    );
+  };
 
   const parsedSearchTerms = useMemo(() =>
     searchQuery
@@ -262,7 +279,7 @@ export default function MissingAssets() {
   const missingSearchTerms = useMemo(
     () =>
       parsedSearchTerms.filter(
-        (term) => !assets.some((a) => normalizeName(a.gameName).includes(term))
+        (term) => !assets.some((asset) => matchesSearchTerm(asset, term))
       ),
     [parsedSearchTerms, assets]
   );
@@ -276,10 +293,18 @@ export default function MissingAssets() {
     [multiSearchInput]
   );
 
+  const matchesMultiTerm = (asset: MissingAsset, term: string) => {
+    const compactTerm = normalizeCompact(term);
+    if (!compactTerm) return false;
+    const compactName = normalizeCompact(asset.gameName);
+    if (compactName.includes(compactTerm)) return true;
+    return normalizeName(asset.gameName).includes(term);
+  };
+
   const multiSearchMissing = useMemo(
     () =>
       multiSearchTerms.filter(
-        (term) => !assets.some((a) => normalizeName(a.gameName).includes(term))
+        (term) => !assets.some((asset) => matchesMultiTerm(asset, term))
       ),
     [multiSearchTerms, assets]
   );
@@ -290,7 +315,7 @@ export default function MissingAssets() {
       const set = new Set<string>();
       const results: MissingAsset[] = [];
       assets.forEach((asset) => {
-        if (multiSearchTerms.some((term) => normalizeName(asset.gameName).includes(term))) {
+        if (multiSearchTerms.some((term) => matchesMultiTerm(asset, term))) {
           if (!set.has(asset.id)) {
             set.add(asset.id);
             results.push(asset);
@@ -307,10 +332,7 @@ export default function MissingAssets() {
   const filteredAssets = assets.filter((asset) => {
     const matchesSearch =
       parsedSearchTerms.length === 0 ||
-      parsedSearchTerms.some((term) =>
-        asset.gameName.toLowerCase().includes(term) ||
-        asset.provider.toLowerCase().includes(term)
-      );
+      parsedSearchTerms.some((term) => matchesSearchTerm(asset, term));
     const matchesStatus = statusFilter === "all" || asset.status === statusFilter;
     const matchesProvider =
       selectedProviders.length === 0 || selectedProviders.includes(asset.provider);
@@ -599,14 +621,22 @@ export default function MissingAssets() {
     assets
       .filter((asset) => asset.provider.toLowerCase() === providerLower)
       .forEach((asset) => {
-        nameMap.set(normalizeName(asset.gameName), asset);
+        const normKey = normalizeName(asset.gameName);
+        const compactKey = normalizeCompact(asset.gameName);
+        nameMap.set(normKey, asset);
+        // Allow compact lowercased lookups (no spaces/punctuation)
+        if (!nameMap.has(compactKey)) {
+          nameMap.set(compactKey, asset);
+        }
       });
 
     const matched: MissingAsset[] = [];
     const missing: string[] = [];
 
     names.forEach((name) => {
-      const found = nameMap.get(normalizeName(name));
+      const normKey = normalizeName(name);
+      const compactKey = normalizeCompact(name);
+      const found = nameMap.get(compactKey) || nameMap.get(normKey);
       if (found) matched.push(found);
       else missing.push(name);
     });
