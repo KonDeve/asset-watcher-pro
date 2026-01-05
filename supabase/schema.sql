@@ -89,6 +89,25 @@ CREATE TABLE IF NOT EXISTS game_asset_links (
 );
 
 -- =============================================
+-- MESSAGES TABLE (Team Chat)
+-- =============================================
+CREATE TABLE IF NOT EXISTS messages (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  sender_id UUID NOT NULL REFERENCES designers(id) ON DELETE CASCADE,
+  receiver_id UUID NOT NULL REFERENCES designers(id) ON DELETE CASCADE,
+  content TEXT NOT NULL,
+  read BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- =============================================
+-- MESSAGE INDEXES
+-- =============================================
+CREATE INDEX IF NOT EXISTS idx_messages_sender ON messages(sender_id);
+CREATE INDEX IF NOT EXISTS idx_messages_receiver ON messages(receiver_id);
+CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at DESC);
+
+-- =============================================
 -- UPDATED_AT TRIGGER FUNCTION
 -- =============================================
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -121,6 +140,7 @@ ALTER TABLE providers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE assets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE asset_brands ENABLE ROW LEVEL SECURITY;
 ALTER TABLE game_asset_links ENABLE ROW LEVEL SECURITY;
+ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 
 -- Allow all operations for authenticated users (adjust as needed)
 CREATE POLICY "Allow all for authenticated users" ON designers FOR ALL USING (true);
@@ -129,6 +149,7 @@ CREATE POLICY "Allow all for authenticated users" ON providers FOR ALL USING (tr
 CREATE POLICY "Allow all for authenticated users" ON assets FOR ALL USING (true);
 CREATE POLICY "Allow all for authenticated users" ON asset_brands FOR ALL USING (true);
 CREATE POLICY "Allow all for authenticated users" ON game_asset_links FOR ALL USING (true);
+CREATE POLICY "Allow all for authenticated users" ON messages FOR ALL USING (true);
 
 -- =============================================
 -- SEED DATA (Optional - matches mockData)

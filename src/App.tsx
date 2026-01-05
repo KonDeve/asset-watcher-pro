@@ -20,6 +20,7 @@ import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 import ChatAssistant from "./pages/ChatAssistant";
 import GameAssetsLinks from "./pages/GameAssetsLinks";
+import TeamChat from "./pages/TeamChat";
 import { supabase } from "@/lib/supabase";
 import type { Session } from "@supabase/supabase-js";
 
@@ -122,6 +123,14 @@ const App = () => {
                   element={
                     <ProtectedRoute>
                       <GameAssetsLinks />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/team-chat"
+                  element={
+                    <ProtectedRoute>
+                      <TeamChat />
                     </ProtectedRoute>
                   }
                 />

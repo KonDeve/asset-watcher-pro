@@ -247,6 +247,14 @@ export function useGameAssetLinks() {
     []
   );
 
+  const deleteLink = useCallback(async (id: string) => {
+    const success = await dataService.deleteGameAssetLink(id);
+    if (success) {
+      setLinks((prev) => prev.filter((l) => l.id !== id));
+    }
+    return success;
+  }, []);
+
   return {
     links,
     loading,
@@ -254,6 +262,7 @@ export function useGameAssetLinks() {
     refetch: fetchLinks,
     addLink,
     updateLink,
+    deleteLink,
     isUsingSupabase: dataService.isUsingSupabase(),
   };
 }
@@ -372,4 +381,75 @@ export function useProviders() {
   }, []);
 
   return { providers, loading, addProvider, updateProvider, deleteProvider, isUsingSupabase: dataService.isUsingSupabase() };
+}
+
+// =============================================
+// useMessages Hook
+// =============================================
+export function useMessages(currentUserId: string, otherUserId: string | null) {
+  const [messages, setMessages] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const fetchMessages = useCallback(async () => {
+    if (!otherUserId) {
+      setMessages([]);
+      return;
+    }
+    setLoading(true);
+    try {
+      const data = await dataService.getMessages(currentUserId, otherUserId);
+      setMessages(data);
+    } catch (err) {
+      console.error("Failed to fetch messages:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [currentUserId, otherUserId]);
+
+  useEffect(() => {
+    fetchMessages();
+  }, [fetchMessages]);
+
+  const sendMessage = useCallback(
+    async (content: string) => {
+      if (!otherUserId) return null;
+      const message = await dataService.sendMessage({
+        senderId: currentUserId,
+        receiverId: otherUserId,
+        content,
+      });
+      if (message) {
+        setMessages((prev) => [...prev, message]);
+      }
+      return message;
+    },
+    [currentUserId, otherUserId]
+  );
+
+  const markAsRead = useCallback(async () => {
+    if (!otherUserId) return;
+    await dataService.markMessagesAsRead(currentUserId, otherUserId);
+  }, [currentUserId, otherUserId]);
+
+  return { messages, loading, sendMessage, markAsRead, refetch: fetchMessages };
+}
+
+// =============================================
+// useUnreadCounts Hook
+// =============================================
+export function useUnreadCounts(userId: string) {
+  const [counts, setCounts] = useState<{ [key: string]: number }>({});
+
+  const fetchCounts = useCallback(async () => {
+    const data = await dataService.getUnreadCount(userId);
+    setCounts(data);
+  }, [userId]);
+
+  useEffect(() => {
+    fetchCounts();
+    const interval = setInterval(fetchCounts, 5000); // Poll every 5 seconds
+    return () => clearInterval(interval);
+  }, [fetchCounts]);
+
+  return { counts, refetch: fetchCounts };
 }

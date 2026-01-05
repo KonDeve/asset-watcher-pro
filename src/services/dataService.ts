@@ -851,6 +851,29 @@ class DataService {
     };
   }
 
+  async deleteGameAssetLink(id: string): Promise<boolean> {
+    if (!this.useSupabase || !supabase) {
+      const index = mockGameAssetLinks.findIndex((l) => l.id === id);
+      if (index !== -1) {
+        mockGameAssetLinks.splice(index, 1);
+        return true;
+      }
+      return false;
+    }
+
+    const { error } = await supabase
+      .from("game_asset_links")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      console.error("Error deleting game asset link:", error);
+      return false;
+    }
+
+    return true;
+  }
+
   async deleteAsset(assetId: string): Promise<boolean> {
     if (!this.useSupabase || !supabase) {
       const index = mockAssets.findIndex((a) => a.id === assetId);
@@ -873,6 +896,123 @@ class DataService {
 
     return true;
   }
+
+  // =============================================
+  // MESSAGES (Team Chat)
+  // =============================================
+
+  async getMessages(userId: string, otherUserId: string): Promise<Message[]> {
+    if (!this.useSupabase || !supabase) {
+      return [];
+    }
+
+    const { data, error } = await supabase
+      .from("messages")
+      .select("*")
+      .or(`and(sender_id.eq.${userId},receiver_id.eq.${otherUserId}),and(sender_id.eq.${otherUserId},receiver_id.eq.${userId})`)
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      console.error("Error fetching messages:", error);
+      return [];
+    }
+
+    return data.map((m) => ({
+      id: m.id,
+      senderId: m.sender_id,
+      receiverId: m.receiver_id,
+      content: m.content,
+      read: m.read,
+      createdAt: m.created_at,
+    }));
+  }
+
+  async sendMessage(message: {
+    senderId: string;
+    receiverId: string;
+    content: string;
+  }): Promise<Message | null> {
+    if (!this.useSupabase || !supabase) {
+      return null;
+    }
+
+    const { data, error } = await supabase
+      .from("messages")
+      .insert({
+        sender_id: message.senderId,
+        receiver_id: message.receiverId,
+        content: message.content,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error sending message:", error);
+      return null;
+    }
+
+    return {
+      id: data.id,
+      senderId: data.sender_id,
+      receiverId: data.receiver_id,
+      content: data.content,
+      read: data.read,
+      createdAt: data.created_at,
+    };
+  }
+
+  async markMessagesAsRead(userId: string, otherUserId: string): Promise<boolean> {
+    if (!this.useSupabase || !supabase) {
+      return false;
+    }
+
+    const { error } = await supabase
+      .from("messages")
+      .update({ read: true })
+      .eq("sender_id", otherUserId)
+      .eq("receiver_id", userId)
+      .eq("read", false);
+
+    if (error) {
+      console.error("Error marking messages as read:", error);
+      return false;
+    }
+
+    return true;
+  }
+
+  async getUnreadCount(userId: string): Promise<{ [key: string]: number }> {
+    if (!this.useSupabase || !supabase) {
+      return {};
+    }
+
+    const { data, error } = await supabase
+      .from("messages")
+      .select("sender_id")
+      .eq("receiver_id", userId)
+      .eq("read", false);
+
+    if (error) {
+      console.error("Error fetching unread count:", error);
+      return {};
+    }
+
+    const counts: { [key: string]: number } = {};
+    data.forEach((m) => {
+      counts[m.sender_id] = (counts[m.sender_id] || 0) + 1;
+    });
+
+    return counts;
+  }
+}
+
+export interface Message {
+  id: string;
+  senderId: string;
+  receiverId: string;
+  content: string;
+  read: boolean;
+  createdAt: string;
 }
 
 // Export singleton instance

@@ -25,6 +25,7 @@ const navItems = [
   { title: "Missing Assets", url: "/missing-assets", icon: FileQuestion },
   { title: "Reports", url: "/reports", icon: BarChart3 },
   { title: "Game Assets Links", url: "/game-assets", icon: Link },
+  { title: "Team Chat", url: "/team-chat", icon: MessageSquare },
   { title: "Team", url: "/team", icon: Users },
   { title: "Settings", url: "/settings", icon: Settings },
 ];
