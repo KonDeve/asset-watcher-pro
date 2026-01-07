@@ -92,6 +92,7 @@ export default function MissingAssets() {
   const [searchQuery, setSearchQuery] = useState(() => localStorage.getItem("missingAssetsSearch") || "");
   const [showMultiSearchModal, setShowMultiSearchModal] = useState(false);
   const [multiSearchInput, setMultiSearchInput] = useState("");
+  const [multiSearchProvider, setMultiSearchProvider] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<AssetStatus | "all">(() => {
     const saved = localStorage.getItem("missingAssetsStatus");
     return saved && saved !== "" ? (saved as AssetStatus | "all") : "all";
@@ -302,19 +303,26 @@ export default function MissingAssets() {
   };
 
   const multiSearchMissing = useMemo(
-    () =>
-      multiSearchTerms.filter(
-        (term) => !assets.some((asset) => matchesMultiTerm(asset, term))
-      ),
-    [multiSearchTerms, assets]
+    () => {
+      const scopedAssets = multiSearchProvider
+        ? assets.filter((a) => a.provider.toLowerCase() === multiSearchProvider.toLowerCase())
+        : assets;
+      return multiSearchTerms.filter(
+        (term) => !scopedAssets.some((asset) => matchesMultiTerm(asset, term))
+      );
+    },
+    [multiSearchTerms, assets, multiSearchProvider]
   );
 
   const multiSearchMatches = useMemo(
     () => {
       if (multiSearchTerms.length === 0) return [] as MissingAsset[];
+      const scopedAssets = multiSearchProvider
+        ? assets.filter((a) => a.provider.toLowerCase() === multiSearchProvider.toLowerCase())
+        : assets;
       const set = new Set<string>();
       const results: MissingAsset[] = [];
-      assets.forEach((asset) => {
+      scopedAssets.forEach((asset) => {
         if (multiSearchTerms.some((term) => matchesMultiTerm(asset, term))) {
           if (!set.has(asset.id)) {
             set.add(asset.id);
@@ -324,7 +332,7 @@ export default function MissingAssets() {
       });
       return results;
     },
-    [multiSearchTerms, assets]
+    [multiSearchTerms, assets, multiSearchProvider]
   );
 
   // Filtered assets (computed even during loading to maintain hook consistency)
@@ -1465,11 +1473,27 @@ export default function MissingAssets() {
           <DialogHeader className="space-y-1">
             <DialogTitle className="text-lg font-semibold">Search Multiple Titles</DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground">
-              Paste titles (one per line). Matches are shown below; missing ones are flagged.
+              Select a provider and paste titles (one per line). Matches are shown below.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Provider</label>
+              <Select value={multiSearchProvider ?? undefined} onValueChange={(v) => setMultiSearchProvider(v)}>
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Choose provider" />
+                </SelectTrigger>
+                <SelectContent>
+                  {providerOptions.map((p) => (
+                    <SelectItem key={p} value={p}>
+                      {p}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <Textarea
               value={multiSearchInput}
               onChange={(e) => setMultiSearchInput(e.target.value)}
@@ -1530,10 +1554,13 @@ export default function MissingAssets() {
             <Button
               variant="secondary"
               onClick={() => {
+                if (multiSearchProvider) {
+                  setSelectedProviders([multiSearchProvider]);
+                }
                 setSearchQuery(multiSearchInput);
                 setShowMultiSearchModal(false);
               }}
-              disabled={multiSearchInput.trim().length === 0}
+              disabled={multiSearchInput.trim().length === 0 || !multiSearchProvider}
             >
               Apply to list
             </Button>

@@ -295,6 +295,9 @@ export function ProviderFolderView({
                   Game Name
                 </th>
                 <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-4 py-3">
+                  Lowercase (no symbols)
+                </th>
+                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-4 py-3">
                   Brands
                 </th>
                 <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-4 py-3">
@@ -318,51 +321,76 @@ export function ProviderFolderView({
               </tr>
             </thead>
             <tbody>
-              {providerAssets.map((asset, index) => (
-                <tr
-                  key={asset.id}
-                  onClick={() => onAssetClick(asset)}
-                  className={`
-                    cursor-pointer transition-colors duration-100 border-b border-border/30
-                    ${index % 2 === 0 ? "bg-card" : "bg-muted/10"}
-                    hover:bg-muted/30
-                    ${isInDragRange(index) && dragType === "status" ? "!bg-primary/15" : ""}
-                    ${isInDragRange(index) && dragType === "designer" ? "!bg-blue-500/15" : ""}
-                  `}
-                >
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <Gamepad2 className="w-4 h-4 text-muted-foreground" />
-                      <div className="flex flex-col leading-tight">
-                        <p className="font-medium text-foreground text-sm">
-                          {asset.gameName}
-                        </p>
-                        <p className="text-xs text-muted-foreground lowercase">
-                          {asset.gameName.toLowerCase().replace(/\s+/g, "")}
-                        </p>
+              {providerAssets.map((asset, index) => {
+                const normalizedName = asset.gameName.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+                return (
+                  <tr
+                    key={asset.id}
+                    onClick={() => onAssetClick(asset)}
+                    className={`
+                      cursor-pointer transition-colors duration-100 border-b border-border/30
+                      ${index % 2 === 0 ? "bg-card" : "bg-muted/10"}
+                      hover:bg-muted/30
+                      ${isInDragRange(index) && dragType === "status" ? "!bg-primary/15" : ""}
+                      ${isInDragRange(index) && dragType === "designer" ? "!bg-blue-500/15" : ""}
+                    `}
+                  >
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <Gamepad2 className="w-4 h-4 text-muted-foreground" />
+                        <div className="flex flex-col leading-tight">
+                          <p className="font-medium text-foreground text-sm">
+                            {asset.gameName}
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            try {
+                              await navigator.clipboard.writeText(asset.gameName);
+                              toast({ title: "Copied", description: "Game name copied." });
+                            } catch (err) {
+                              console.error(err);
+                              toast({ title: "Copy failed", description: "Could not copy name.", variant: "destructive" });
+                            }
+                          }}
+                          aria-label="Copy game name"
+                        >
+                          <Copy className="w-4 h-4" />
+                        </Button>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          try {
-                            await navigator.clipboard.writeText(asset.gameName);
-                            toast({ title: "Copied", description: "Game name copied." });
-                          } catch (err) {
-                            console.error(err);
-                            toast({ title: "Copy failed", description: "Could not copy name.", variant: "destructive" });
-                          }
-                        }}
-                        aria-label="Copy game name"
-                      >
-                        <Copy className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-col gap-1">
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs text-muted-foreground break-all">
+                          {normalizedName}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            try {
+                              await navigator.clipboard.writeText(normalizedName);
+                              toast({ title: "Copied", description: "Lowercase name copied." });
+                            } catch (err) {
+                              console.error(err);
+                              toast({ title: "Copy failed", description: "Could not copy name.", variant: "destructive" });
+                            }
+                          }}
+                          aria-label="Copy lowercase name"
+                        >
+                          <Copy className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-col gap-1">
                       {asset.brands.slice(0, 2).map((brand) => (
                         <div key={brand.id} className="flex items-center gap-1.5">
                           <span
@@ -384,100 +412,101 @@ export function ProviderFolderView({
                           +{asset.brands.length - 2} more
                         </span>
                       )}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 max-w-xs">
-                    <span className="text-sm text-muted-foreground line-clamp-2">
-                      {asset.notes || "—"}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex items-center gap-1 group">
-                      <div
-                        className="cursor-grab active:cursor-grabbing p-1 -ml-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-muted rounded"
-                        onMouseDown={(e) => handleDragStart(e, index, "status", asset.status)}
-                        title="Drag to fill"
-                      >
-                        <GripVertical className="w-3 h-3 text-muted-foreground" />
                       </div>
-                      <Select
-                        value={asset.status}
-                        onValueChange={(v) =>
-                          onStatusChange(asset.id, v as AssetStatus)
-                        }
-                      >
-                        <SelectTrigger className="w-28 h-7 border-0 bg-transparent p-0 hover:bg-muted/50 rounded transition-colors">
-                          <StatusBadge status={asset.status} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Object.entries(statusConfig).map(([key, config]) => (
-                            <SelectItem key={key} value={key}>
-                              {config.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex items-center gap-1 group">
-                      <div
-                        className="cursor-grab active:cursor-grabbing p-1 -ml-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-muted rounded"
-                        onMouseDown={(e) => handleDragStart(e, index, "designer", asset.designer?.id || "unassigned")}
-                        title="Drag to fill"
-                      >
-                        <GripVertical className="w-3 h-3 text-muted-foreground" />
+                    </td>
+                    <td className="px-4 py-3 max-w-xs">
+                      <span className="text-sm text-muted-foreground line-clamp-2">
+                        {asset.notes || "—"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center gap-1 group">
+                        <div
+                          className="cursor-grab active:cursor-grabbing p-1 -ml-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-muted rounded"
+                          onMouseDown={(e) => handleDragStart(e, index, "status", asset.status)}
+                          title="Drag to fill"
+                        >
+                          <GripVertical className="w-3 h-3 text-muted-foreground" />
+                        </div>
+                        <Select
+                          value={asset.status}
+                          onValueChange={(v) =>
+                            onStatusChange(asset.id, v as AssetStatus)
+                          }
+                        >
+                          <SelectTrigger className="w-28 h-7 border-0 bg-transparent p-0 hover:bg-muted/50 rounded transition-colors">
+                            <StatusBadge status={asset.status} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(statusConfig).map(([key, config]) => (
+                              <SelectItem key={key} value={key}>
+                                {config.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
-                      <Select
-                        value={asset.designer?.id || "unassigned"}
-                        onValueChange={(v) => onDesignerChange(asset.id, v)}
-                      >
-                        <SelectTrigger className="w-32 h-7 border-0 bg-transparent p-0 hover:bg-muted/50 rounded transition-colors">
-                          <DesignerAvatar designer={asset.designer} size="sm" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="unassigned">Unassigned</SelectItem>
-                          {designers.map((d) => (
-                            <SelectItem key={d.id} value={d.id}>
-                              {d.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="text-sm text-muted-foreground">
-                      {asset.foundBy}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="text-sm text-muted-foreground tabular-nums">
-                      {new Date(asset.dateFound).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center justify-end">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 hover:bg-destructive/10 text-destructive"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDeleteRequest(asset);
-                        }}
-                        aria-label="Delete asset"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center gap-1 group">
+                        <div
+                          className="cursor-grab active:cursor-grabbing p-1 -ml-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-muted rounded"
+                          onMouseDown={(e) => handleDragStart(e, index, "designer", asset.designer?.id || "unassigned")}
+                          title="Drag to fill"
+                        >
+                          <GripVertical className="w-3 h-3 text-muted-foreground" />
+                        </div>
+                        <Select
+                          value={asset.designer?.id || "unassigned"}
+                          onValueChange={(v) => onDesignerChange(asset.id, v)}
+                        >
+                          <SelectTrigger className="w-32 h-7 border-0 bg-transparent p-0 hover:bg-muted/50 rounded transition-colors">
+                            <DesignerAvatar designer={asset.designer} size="sm" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="unassigned">Unassigned</SelectItem>
+                            {designers.map((d) => (
+                              <SelectItem key={d.id} value={d.id}>
+                                {d.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="text-sm text-muted-foreground">
+                        {asset.foundBy}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="text-sm text-muted-foreground tabular-nums">
+                        {new Date(asset.dateFound).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 hover:bg-destructive/10 text-destructive"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteRequest(asset);
+                          }}
+                          aria-label="Delete asset"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

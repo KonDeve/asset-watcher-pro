@@ -386,12 +386,14 @@ export function useProviders() {
 // =============================================
 // useMessages Hook
 // =============================================
+// useMessages Hook
+// =============================================
 export function useMessages(currentUserId: string, otherUserId: string | null) {
   const [messages, setMessages] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchMessages = useCallback(async () => {
-    if (!otherUserId) {
+    if (!otherUserId || !currentUserId) {
       setMessages([]);
       return;
     }
@@ -412,7 +414,7 @@ export function useMessages(currentUserId: string, otherUserId: string | null) {
 
   const sendMessage = useCallback(
     async (content: string) => {
-      if (!otherUserId) return null;
+      if (!otherUserId || !currentUserId) return null;
       const message = await dataService.sendMessage({
         senderId: currentUserId,
         receiverId: otherUserId,
@@ -427,7 +429,7 @@ export function useMessages(currentUserId: string, otherUserId: string | null) {
   );
 
   const markAsRead = useCallback(async () => {
-    if (!otherUserId) return;
+    if (!otherUserId || !currentUserId) return;
     await dataService.markMessagesAsRead(currentUserId, otherUserId);
   }, [currentUserId, otherUserId]);
 
@@ -441,15 +443,17 @@ export function useUnreadCounts(userId: string) {
   const [counts, setCounts] = useState<{ [key: string]: number }>({});
 
   const fetchCounts = useCallback(async () => {
+    if (!userId) return;
     const data = await dataService.getUnreadCount(userId);
     setCounts(data);
   }, [userId]);
 
   useEffect(() => {
+    if (!userId) return;
     fetchCounts();
     const interval = setInterval(fetchCounts, 5000); // Poll every 5 seconds
     return () => clearInterval(interval);
-  }, [fetchCounts]);
+  }, [fetchCounts, userId]);
 
   return { counts, refetch: fetchCounts };
 }
