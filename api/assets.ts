@@ -85,7 +85,7 @@ export default async function handler(req: any, res: any) {
         .select(`
           game_name,
           status,
-          providers!inner(name)
+          providers(name)
         `);
 
       // Apply same filters
