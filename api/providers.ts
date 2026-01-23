@@ -53,7 +53,11 @@ export default async function handler(req: any, res: any) {
       return;
     }
 
-    res.status(200).json(data || []);
+    const providers = data || [];
+    res.status(200).json({
+      count: providers.length,
+      data: providers
+    });
 
   } catch (error: any) {
     console.error('API error:', error);

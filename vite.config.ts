@@ -58,7 +58,10 @@ export default defineConfig(({ mode }) => ({
               // Send response
               res.setHeader('Content-Type', 'application/json');
               res.statusCode = 200;
-              res.end(JSON.stringify(providers));
+              res.end(JSON.stringify({
+                count: providers.length,
+                data: providers
+              }));
             } catch (error: any) {
               console.error('API error:', error);
               res.setHeader('Content-Type', 'application/json');
@@ -94,7 +97,10 @@ export default defineConfig(({ mode }) => ({
               // Send response
               res.setHeader('Content-Type', 'application/json');
               res.statusCode = 200;
-              res.end(JSON.stringify(assets));
+              res.end(JSON.stringify({
+                count: assets.length,
+                data: assets
+              }));
             } catch (error: any) {
               console.error('API error:', error);
               res.setHeader('Content-Type', 'application/json');

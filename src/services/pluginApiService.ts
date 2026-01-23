@@ -59,20 +59,64 @@ export async function fetchAssetsForPlugin(
       query = query.eq('status', status);
     }
 
-    // Order by game name
-    query = query.order('game_name', { ascending: true });
+    // Paginate to fetch ALL assets (Supabase default limit is 1000)
+    const PAGE_SIZE = 1000;
+    let allAssets: any[] = [];
+    let page = 0;
+    let hasMore = true;
 
-    const { data, error } = await query;
+    while (hasMore) {
+      const from = page * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
 
-    if (error) {
-      console.error('Error fetching assets for plugin:', error);
-      throw new Error(`Failed to fetch assets: ${error.message}`);
+      // Build query with pagination
+      let paginatedQuery = supabase
+        .from('assets')
+        .select(`
+          game_name,
+          status,
+          providers!assets_provider_id_fkey(name)
+        `);
+
+      // Apply same filters
+      if (provider) {
+        const { data: providerData } = await supabase
+          .from('providers')
+          .select('id')
+          .eq('name', provider)
+          .single();
+        
+        if (providerData) {
+          paginatedQuery = paginatedQuery.eq('provider_id', providerData.id);
+        }
+      }
+
+      if (status) {
+        paginatedQuery = paginatedQuery.eq('status', status);
+      }
+
+      paginatedQuery = paginatedQuery.order('game_name', { ascending: true }).range(from, to);
+
+      const { data: pageData, error: pageError } = await paginatedQuery;
+
+      if (pageError) {
+        console.error('Error fetching assets page:', pageError);
+        break;
+      }
+
+      if (pageData && pageData.length > 0) {
+        allAssets = allAssets.concat(pageData);
+        hasMore = pageData.length === PAGE_SIZE;
+        page++;
+      } else {
+        hasMore = false;
+      }
     }
 
-    console.log('Fetched', data?.length || 0, 'assets');
+    console.log('Fetched', allAssets.length, 'assets');
 
     // Transform data to plugin format
-    return (data || []).map((item: any) => ({
+    return allAssets.map((item: any) => ({
       game_name: item.game_name,
       gamename: normalizeGameName(item.game_name),
       provider: item.providers?.name || 'Unknown',

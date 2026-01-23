@@ -58,7 +58,7 @@ export default async function handler(req: any, res: any) {
         game_name,
         status,
         providers!inner(name)
-      `);
+      `, { count: 'exact' });
 
     // Apply filters
     if (provider) {
@@ -69,24 +69,65 @@ export default async function handler(req: any, res: any) {
       query = query.eq('status', status);
     }
 
-    // Execute query
-    const { data, error } = await query;
+    // Paginate to fetch ALL assets (Supabase default limit is 1000)
+    const PAGE_SIZE = 1000;
+    let allAssets: any[] = [];
+    let page = 0;
+    let hasMore = true;
 
-    if (error) {
-      console.error('Supabase error:', error);
-      res.status(500).json({ error: 'Database query failed', details: error.message });
-      return;
+    while (hasMore) {
+      const from = page * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+
+      // Build paginated query
+      let paginatedQuery = supabase
+        .from('assets')
+        .select(`
+          game_name,
+          status,
+          providers!inner(name)
+        `);
+
+      // Apply same filters
+      if (provider) {
+        paginatedQuery = paginatedQuery.eq('providers.name', provider);
+      }
+
+      if (status) {
+        paginatedQuery = paginatedQuery.eq('status', status);
+      }
+
+      paginatedQuery = paginatedQuery.range(from, to);
+
+      const { data: pageData, error: pageError } = await paginatedQuery;
+
+      if (pageError) {
+        console.error('Supabase pagination error:', pageError);
+        break;
+      }
+
+      if (pageData && pageData.length > 0) {
+        allAssets = allAssets.concat(pageData);
+        hasMore = pageData.length === PAGE_SIZE;
+        page++;
+      } else {
+        hasMore = false;
+      }
     }
 
     // Transform data to match dev environment format
-    const assets = (data || []).map((item: any) => ({
+    const assets = allAssets.map((item: any) => ({
       game_name: item.game_name,
       gamename: normalizeGameName(item.game_name),
       provider: item.providers?.name || 'Unknown',
       status: item.status
     }));
 
-    res.status(200).json(assets);
+    res.status(200).json({
+      count: assets.length,
+      returned: assets.length,
+      data: assets
+    });
 
   } catch (error: any) {
     console.error('API error:', error);
