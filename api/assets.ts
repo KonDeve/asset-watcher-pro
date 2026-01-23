@@ -56,6 +56,7 @@ export default async function handler(req: any, res: any) {
       .from('assets')
       .select(`
         game_name,
+        status,
         providers!inner(name)
       `);
 
@@ -77,10 +78,12 @@ export default async function handler(req: any, res: any) {
       return;
     }
 
-    // Transform data
+    // Transform data to match dev environment format
     const assets = (data || []).map((item: any) => ({
       game_name: item.game_name,
-      gamename: normalizeGameName(item.game_name)
+      gamename: normalizeGameName(item.game_name),
+      provider: item.providers?.name || 'Unknown',
+      status: item.status
     }));
 
     res.status(200).json(assets);
