@@ -51,22 +51,26 @@ export default async function handler(req: any, res: any) {
       return;
     }
 
-    // Build query
-    let query = supabase
-      .from('assets')
-      .select(`
-        game_name,
-        status,
-        providers!inner(name)
-      `, { count: 'exact' });
-
-    // Apply filters
+    // Get provider ID if provider filter is specified
+    let providerId: number | undefined;
     if (provider) {
-      query = query.eq('providers.name', provider);
-    }
-
-    if (status) {
-      query = query.eq('status', status);
+      const { data: providerData, error: providerError } = await supabase
+        .from('providers')
+        .select('id')
+        .eq('name', provider)
+        .single();
+      
+      if (providerError || !providerData) {
+        console.error('Provider not found:', provider);
+        res.status(200).json({
+          count: 0,
+          returned: 0,
+          data: []
+        });
+        return;
+      }
+      
+      providerId = providerData.id;
     }
 
     // Paginate to fetch ALL assets (Supabase default limit is 1000)
@@ -85,12 +89,13 @@ export default async function handler(req: any, res: any) {
         .select(`
           game_name,
           status,
+          provider_id,
           providers(name)
         `);
 
-      // Apply same filters
-      if (provider) {
-        paginatedQuery = paginatedQuery.eq('providers.name', provider);
+      // Apply filters
+      if (providerId) {
+        paginatedQuery = paginatedQuery.eq('provider_id', providerId);
       }
 
       if (status) {
