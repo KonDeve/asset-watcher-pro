@@ -291,11 +291,11 @@ export function ProviderFolderView({
           <table ref={tableRef} className="w-full border-collapse select-none">
             <thead className="sticky top-0 z-10">
               <tr className="bg-muted/80 backdrop-blur-sm border-b border-border">
-                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-4 py-3">
-                  Game Name
+                <th className="text-left text-xs font-semibold text-muted-foreground tracking-wider px-4 py-3">
+                  game_name
                 </th>
-                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-4 py-3">
-                  Lowercase (no symbols)
+                <th className="text-left text-xs font-semibold text-muted-foreground tracking-wider px-4 py-3">
+                  gamename
                 </th>
                 <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-4 py-3">
                   Brands
