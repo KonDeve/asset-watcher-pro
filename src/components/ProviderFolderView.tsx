@@ -57,9 +57,12 @@ export function ProviderFolderView({
     value: null as AssetStatus | string | null,
   });
 
-  // Group assets by provider
+  // Group assets by provider (exclude Unknown Provider)
   const providerGroups = assets.reduce((groups, asset) => {
     const provider = asset.provider;
+    if (!provider || provider === "Unknown Provider") {
+      return groups; // Skip assets with no provider
+    }
     if (!groups[provider]) {
       groups[provider] = [];
     }

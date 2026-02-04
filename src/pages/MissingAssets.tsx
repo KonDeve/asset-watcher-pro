@@ -335,9 +335,15 @@ export default function MissingAssets() {
     [multiSearchTerms, assets, multiSearchProvider]
   );
 
+  // Filter out assets with Unknown Provider from all counts and views
+  const validAssets = useMemo(
+    () => assets.filter((asset) => asset.provider && asset.provider !== "Unknown Provider"),
+    [assets]
+  );
+
   // Filtered assets (computed even during loading to maintain hook consistency)
 
-  const filteredAssets = assets.filter((asset) => {
+  const filteredAssets = validAssets.filter((asset) => {
     const matchesSearch =
       parsedSearchTerms.length === 0 ||
       parsedSearchTerms.some((term) => matchesSearchTerm(asset, term));
@@ -942,7 +948,7 @@ export default function MissingAssets() {
                       Missing Assets
                     </h1>
                     <p className="text-xs text-muted-foreground">
-                      {filteredAssets.length} of {assets.length} assets
+                      {filteredAssets.length} of {validAssets.length} assets
                     </p>
                   </div>
                 </div>

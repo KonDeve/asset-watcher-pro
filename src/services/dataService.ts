@@ -395,7 +395,7 @@ class DataService {
       return {
         id: asset.id,
         gameName: asset.game_name,
-        provider: asset.provider?.name || "",
+        provider: asset.provider?.name || "Unknown Provider",
         brands: assetBrands,
         status: asset.status as AssetStatus,
         designer: asset.designer
